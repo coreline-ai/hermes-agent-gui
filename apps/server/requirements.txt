@@ -1,0 +1,9 @@
+# hermes-agent-gui server -- Phase 1
+# stdlib + two minimal deps (B's pattern).
+pyyaml>=6.0          # config loader, onboarding wizard
+cryptography>=42.0   # HMAC secret rotation (Phase 1) + passkey/WebAuthn (Phase 7+)
+
+# Optional Phase 18 vector backend: sqlite-vss>=0.1
+# Optional Phase 22 parser/watch backend: tree-sitter==0.21.* watchdog>=4.0
+
+# Optional Phase 23 browser backend: playwright>=1.40 (install chromium separately)

@@ -1,0 +1,38 @@
+{
+  "name": "@hermes-agent-gui/electron",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac --publish never",
+    "build:win": "electron-builder --win --publish never",
+    "build:linux": "electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.hermes.agent.gui",
+    "productName": "Hermes Agent GUI",
+    "directories": { "output": "release" },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "../apps/server/**/*",
+      "../apps/web/dist/**/*"
+    ],
+    "extraResources": [
+      { "from": "../apps/server", "to": "server" },
+      { "from": "../apps/web/dist", "to": "web" }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg", "zip"]
+    },
+    "win": { "target": ["nsis"] },
+    "linux": { "target": ["AppImage"] }
+  }
+}

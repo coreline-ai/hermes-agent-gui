@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Tailwind v4: bind ``dark:`` variants to OUR three dark themes (slate/mono/
+ * glass) so e.g. ``dark:border-white/10`` actually fires when the user
+ * picks them — and is *not* mistakenly triggered by macOS dark mode on
+ * a light theme (Hermes/Nous/Bronze).
+ * ───────────────────────────────────────────────────────────────────────── */
+@custom-variant dark (
+  &:where(
+    [data-theme="slate"],
+    [data-theme="slate"] *,
+    [data-theme="mono"],
+    [data-theme="mono"] *,
+    [data-theme="glass"],
+    [data-theme="glass"] *
+  )
+);
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 6 themes — every theme defines:
+ *   --color-bg / --color-fg / --color-accent     (page-level)
+ *   --color-border / --color-surface             (panels + dividers)
+ *   --color-muted-fg                             (secondary text)
+ *   --surface-blur / --surface-alpha             (Glass utility)
+ *
+ * Components consume these vars via the ``border-token`` / ``surface``
+ * utility classes below so theme switches always have visible borders.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="hermes"] {
+  --color-bg:        oklch(0.99 0 0);
+  --color-fg:        oklch(0.18 0 0);
+  --color-accent:    oklch(0.62 0.18 252);
+  --color-border:    oklch(0 0 0 / 0.10);
+  --color-surface:   oklch(0 0 0 / 0.03);
+  --color-muted-fg:  oklch(0.40 0 0);
+  --surface-blur:    0px;
+  --surface-alpha:   1;
+}
+
+[data-theme="nous"] {
+  --color-bg:        oklch(0.97 0.02 110);
+  --color-fg:        oklch(0.18 0.03 110);
+  --color-accent:    oklch(0.58 0.16 100);
+  --color-border:    oklch(0.18 0.03 110 / 0.14);
+  --color-surface:   oklch(0.18 0.03 110 / 0.04);
+  --color-muted-fg:  oklch(0.45 0.03 110);
+  --surface-blur:    0px;
+  --surface-alpha:   1;
+}
+
+[data-theme="bronze"] {
+  --color-bg:        oklch(0.95 0.04 65);
+  --color-fg:        oklch(0.25 0.05 50);
+  --color-accent:    oklch(0.62 0.13 55);
+  --color-border:    oklch(0.25 0.05 50 / 0.16);
+  --color-surface:   oklch(0.25 0.05 50 / 0.05);
+  --color-muted-fg:  oklch(0.48 0.05 50);
+  --surface-blur:    0px;
+  --surface-alpha:   1;
+}
+
+[data-theme="slate"] {
+  --color-bg:        oklch(0.18 0.01 252);
+  --color-fg:        oklch(0.96 0 0);
+  --color-accent:    oklch(0.70 0.16 230);
+  --color-border:    oklch(1 0 0 / 0.16);
+  --color-surface:   oklch(1 0 0 / 0.05);
+  --color-muted-fg:  oklch(0.72 0.01 252);
+  --surface-blur:    0px;
+  --surface-alpha:   1;
+}
+
+[data-theme="mono"] {
+  --color-bg:        oklch(0.10 0 0);
+  --color-fg:        oklch(0.95 0 0);
+  --color-accent:    oklch(0.80 0 0);
+  --color-border:    oklch(1 0 0 / 0.22);
+  --color-surface:   oklch(1 0 0 / 0.06);
+  --color-muted-fg:  oklch(0.70 0 0);
+  --surface-blur:    0px;
+  --surface-alpha:   1;
+}
+
+[data-theme="glass"] {
+  --color-bg:        oklch(0.18 0.04 270);
+  --color-fg:        oklch(0.97 0.01 270);
+  --color-accent:    oklch(0.78 0.14 200);
+  --color-border:    oklch(1 0 0 / 0.20);
+  --color-surface:   oklch(1 0 0 / 0.07);
+  --color-muted-fg:  oklch(0.78 0.04 270);
+  --surface-blur:    16px;
+  --surface-alpha:   0.35;
+}
+
+/* C v3.3.13 — Firefox: drop backdrop-filter so a CPU core isn't pinned. */
+@-moz-document url-prefix() {
+  [data-theme="glass"] {
+    --surface-blur:  0px;
+    --surface-alpha: 0.85;
+  }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Theme-aware utility classes. Use these instead of hard-coded
+ * ``border-black/5 dark:border-white/10`` so every theme renders with a
+ * visible border and a slightly tinted surface.
+ *
+ * Replace patterns:
+ *   border-black/5 dark:border-white/10        →   border-token
+ *   bg-black/[0.02] dark:bg-white/[0.03]       →   surface
+ *   text-black/60 dark:text-white/60           →   text-muted
+ * ───────────────────────────────────────────────────────────────────────── */
+
+@utility border-token {
+  border-color: var(--color-border);
+}
+
+@utility surface {
+  background-color: var(--color-surface);
+}
+
+@utility text-muted {
+  color: var(--color-muted-fg);
+}
+
+/* Glass utility — opt-in via .glass on any panel. */
+.glass {
+  backdrop-filter: blur(var(--surface-blur));
+  -webkit-backdrop-filter: blur(var(--surface-blur));
+  background-color: color-mix(in oklch, var(--color-bg) calc(var(--surface-alpha) * 100%), transparent);
+  border: 1px solid var(--color-border);
+}

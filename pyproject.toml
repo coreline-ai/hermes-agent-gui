@@ -1,0 +1,8 @@
+[project]
+name = "hermes-agent-gui"
+version = "0.1.0"
+description = "One GUI for Hermes Agent"
+requires-python = ">=3.11"
+
+[project.scripts]
+hermes-agent-gui = "apps.server.cli:main"

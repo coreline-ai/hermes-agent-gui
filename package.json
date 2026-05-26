@@ -1,0 +1,24 @@
+{
+  "name": "hermes-agent-gui",
+  "version": "0.1.0-phase-0",
+  "private": true,
+  "description": "One GUI for Hermes Agent — web · PWA · single-file · electron. Self-hosted.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --filter @hermes-agent-gui/web dev",
+    "build": "pnpm --filter @hermes-agent-gui/web build",
+    "server": "python3 apps/server/server.py",
+    "server:dev": "python3 apps/server/server.py --port 8800",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "lint": "pnpm --filter @hermes-agent-gui/web lint",
+    "typecheck": "pnpm --filter @hermes-agent-gui/web typecheck"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  }
+}

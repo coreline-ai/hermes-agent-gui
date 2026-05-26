@@ -1,0 +1,8 @@
+# Reverse proxy for the 3-container compose. Replace YOUR_DOMAIN.
+# Caddy auto-issues TLS via Let's Encrypt or your private CA (Tailscale).
+{$HERMES_GUI_DOMAIN:hermes.local} {
+    encode zstd gzip
+    reverse_proxy gui:8800 {
+        flush_interval -1   # keep SSE responsive
+    }
+}

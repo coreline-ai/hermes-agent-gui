@@ -1,0 +1,25 @@
+# 1-container mode (embedded). Mounts ~/.hermes for Hermes Agent and a
+# workspace dir for files. Auth required if exposed outside 127.0.0.1.
+
+services:
+  gui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: hermes-agent-gui:latest
+    container_name: hermes-agent-gui
+    environment:
+      HERMES_GUI_PASSWORD: ${HERMES_GUI_PASSWORD:?set in .env}
+      HERMES_GUI_HOST: 0.0.0.0
+      HERMES_API_URL: ${HERMES_API_URL:-}
+      HERMES_API_TOKEN: ${HERMES_API_TOKEN:-}
+    volumes:
+      - ${HOME}/.hermes:/home/hermes/.hermes
+      - ${HOME}/workspace:/workspace
+      - hermes-gui-state:/home/hermes/.hermes-agent-gui
+    ports:
+      - "127.0.0.1:8800:8800"
+    restart: unless-stopped
+
+volumes:
+  hermes-gui-state:

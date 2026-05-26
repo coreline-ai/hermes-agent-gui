@@ -1,0 +1,21 @@
+hermes-agent-gui
+
+Copyright (c) 2026 hermes-agent-gui contributors
+Licensed under the MIT License (see LICENSE).
+
+This project is original work. No source code is copied from any third party.
+
+Runtime integration:
+
+- NousResearch/hermes-agent
+  https://github.com/NousResearch/hermes-agent
+  MIT-licensed. This GUI communicates with Hermes Agent over its public
+  gateway (HTTP) or imports the AIAgent class when running in embedded mode.
+  The Hermes Agent source tree is NOT bundled or modified by this project.
+
+Background research (analysis only — no code reuse):
+
+- See docs/review/01-hermes-workspace.md, 02-hermes-webui.md, 03-hermes-ui.md
+  for the public-repo design analysis that informed our architecture choices.
+  Those reviews study only public READMEs and file layouts. They do not
+  derive code from those projects.
