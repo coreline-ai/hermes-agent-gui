@@ -612,8 +612,6 @@ cd ../web && pnpm vitest run && pnpm typecheck && pnpm lint
 [MIT](./LICENSE) — 본 프로젝트의 모든 코드는 본 저장소에서 **직접 작성된 원본**이다.
 런타임에 통합하는 [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) (MIT) 만 [`NOTICE`](./NOTICE) 에 표기.
 
-설계 단계에서 참고한 오픈소스 분석 (코드 복사 없음) 은 [`docs/review/01~03`](./docs/review/) 에 별도 보관.
-
 ---
 
 <div align="center">
