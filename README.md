@@ -1,5 +1,7 @@
 <div align="center">
 
+<img width="2752" height="1536" alt="한 번에 끝내는 AI 인터페이스" src="https://github.com/user-attachments/assets/369fe09c-bdba-4ff5-9c6f-181dd36cab21" />
+
 # hermes-agent-gui
 
 ### One GUI for [Hermes Agent](https://github.com/NousResearch/hermes-agent) · Web · PWA · Single-file · Electron
