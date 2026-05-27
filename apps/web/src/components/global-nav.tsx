@@ -4,13 +4,13 @@ import { useT } from '@/lib/i18n';
 
 const ITEMS = [
   { to: '/chat', key: 'nav.chat' as const },
-  { to: '/sessions', key: 'nav.chat' as const, label: 'Sessions' },
+  { to: '/sessions', key: 'nav.sessions' as const },
   { to: '/workspace', key: 'nav.workspace' as const },
-  { to: '/terminal', key: 'nav.chat' as const, label: 'Terminal' },
+  { to: '/terminal', key: 'nav.terminal' as const },
   { to: '/skills', key: 'nav.skills' as const },
   { to: '/mcp', key: 'nav.mcp' as const },
   { to: '/memory', key: 'nav.memory' as const },
-  { to: '/rag', key: 'nav.chat' as const, label: 'RAG' },
+  { to: '/rag', key: 'nav.rag' as const },
   { to: '/messaging', key: 'nav.messaging' as const },
   { to: '/profiles', key: 'nav.profiles' as const },
   { to: '/providers', key: 'nav.providers' as const },
@@ -18,14 +18,14 @@ const ITEMS = [
   { to: '/usage', key: 'nav.usage' as const },
   { to: '/tasks', key: 'nav.tasks' as const },
   { to: '/cron', key: 'nav.cron' as const },
-  { to: '/swarm', key: 'nav.chat' as const, label: 'Swarm' },
-  { to: '/groups', key: 'nav.chat' as const, label: 'Groups' },
-  { to: '/brain', key: 'nav.chat' as const, label: 'Brain' },
-  { to: '/code-graph', key: 'nav.chat' as const, label: 'Code Graph' },
-  { to: '/browser', key: 'nav.chat' as const, label: 'Browser' },
-  { to: '/office', key: 'nav.chat' as const, label: 'Office' },
-  { to: '/cli-bridges', key: 'nav.chat' as const, label: 'CLI' },
-  { to: '/marketplace', key: 'nav.chat' as const, label: 'Marketplace' },
+  { to: '/swarm', key: 'nav.swarm' as const },
+  { to: '/groups', key: 'nav.groups' as const },
+  { to: '/brain', key: 'nav.brain' as const },
+  { to: '/code-graph', key: 'nav.codeGraph' as const },
+  { to: '/browser', key: 'nav.browser' as const },
+  { to: '/office', key: 'nav.office' as const },
+  { to: '/cli-bridges', key: 'nav.cliBridges' as const },
+  { to: '/marketplace', key: 'nav.marketplace' as const },
   { to: '/dashboard', key: 'nav.dashboard' as const },
   { to: '/settings', key: 'nav.settings' as const },
 ];
@@ -49,7 +49,7 @@ export function GlobalNav() {
                   active ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300' : ''
                 }`}
               >
-                {item.label ?? t(item.key)}
+                {t(item.key)}
               </Link>
             </li>
           );

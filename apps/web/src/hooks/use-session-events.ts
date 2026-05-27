@@ -6,12 +6,13 @@ import { useQueryClient } from '@tanstack/react-query';
  * on every server-side change. Uses the native ``EventSource`` (no auth header
  * needed — the HMAC cookie travels automatically).
  *
- * One subscriber per mount; auto-reconnects via EventSource's built-in
- * retry. The hook is a no-op outside the browser.
+ * One subscriber per authenticated mount; auto-reconnects via EventSource's
+ * built-in retry. The hook is a no-op while disabled or outside the browser.
  */
-export function useSessionEvents(): void {
+export function useSessionEvents(enabled: boolean): void {
   const qc = useQueryClient();
   useEffect(() => {
+    if (!enabled) return;
     if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
     const es = new EventSource('/api/sessions/_stream');
 
@@ -29,5 +30,5 @@ export function useSessionEvents(): void {
     });
 
     return () => es.close();
-  }, [qc]);
+  }, [enabled, qc]);
 }

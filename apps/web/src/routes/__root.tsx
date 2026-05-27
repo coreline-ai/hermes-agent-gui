@@ -15,7 +15,7 @@ function RootLayout() {
   const hydrate = useAuthStore((s) => s.hydrate);
   const user = useAuthStore((s) => s.user);
   const doLogout = useAuthStore((s) => s.logout);
-  useSessionEvents();
+  useSessionEvents(status === 'authenticated');
 
   useEffect(() => {
     if (status === 'unknown') void hydrate();

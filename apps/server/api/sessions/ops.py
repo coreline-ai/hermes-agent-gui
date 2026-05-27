@@ -46,6 +46,28 @@ def register_routes(cfg: Config, store: SessionStore) -> Router:
         events.publish("session_list_changed", {"session_id": sess.id})
         return Response(HTTPStatus.CREATED, sess.to_dict())
 
+    @router.route("GET", "/api/sessions/_stream")
+    def _events_stream(req: Request):
+        if _require_auth(req, cfg) is None:
+            return Response(HTTPStatus.UNAUTHORIZED, {"error": "not_authenticated"})
+        q = events.subscribe()
+        try:
+            streaming.begin_sse(req.raw)
+            if not streaming.write_event(req.raw, "ready", {"ok": True}):
+                return None
+            while True:
+                got_any = False
+                for evt in events.drain(q, timeout=20.0):
+                    got_any = True
+                    if not streaming.write_event(req.raw, evt.kind, evt.payload):
+                        return None
+                if not got_any:
+                    if not streaming.write_event(req.raw, "ping", {"ts": int(__import__("time").time())}):
+                        return None
+        finally:
+            events.unsubscribe(q)
+        return None
+
     @router.route("GET", "/api/sessions/{sid}")
     def _get(req: Request) -> Response:
         if _require_auth(req, cfg) is None:
@@ -118,28 +140,6 @@ def register_routes(cfg: Config, store: SessionStore) -> Router:
             HTTPStatus.OK,
             {**report.to_dict(), "repaired": repaired, "messages": [m.to_dict() for m in sess.messages]},
         )
-
-    @router.route("GET", "/api/sessions/_stream")
-    def _events_stream(req: Request):
-        if _require_auth(req, cfg) is None:
-            return Response(HTTPStatus.UNAUTHORIZED, {"error": "not_authenticated"})
-        q = events.subscribe()
-        try:
-            streaming.begin_sse(req.raw)
-            if not streaming.write_event(req.raw, "ready", {"ok": True}):
-                return None
-            while True:
-                got_any = False
-                for evt in events.drain(q, timeout=20.0):
-                    got_any = True
-                    if not streaming.write_event(req.raw, evt.kind, evt.payload):
-                        return None
-                if not got_any:
-                    if not streaming.write_event(req.raw, "ping", {"ts": int(__import__("time").time())}):
-                        return None
-        finally:
-            events.unsubscribe(q)
-        return None
 
     return router
 

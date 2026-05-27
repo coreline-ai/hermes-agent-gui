@@ -8,9 +8,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Status](https://img.shields.io/badge/status-Phase_25_complete-2EA043.svg)](#%EF%B8%8F-roadmap)
-[![Pytest](https://img.shields.io/badge/pytest-133_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
+[![Pytest](https://img.shields.io/badge/pytest-135_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
 [![Vitest](https://img.shields.io/badge/vitest-20_passed-2EA043.svg?logo=vitest&logoColor=white)](#-testing)
-[![Endpoints](https://img.shields.io/badge/endpoints-115-2EA043.svg)](#%EF%B8%8F-architecture)
+[![Endpoints](https://img.shields.io/badge/endpoints-118-2EA043.svg)](#%EF%B8%8F-architecture)
 [![Routes](https://img.shields.io/badge/routes-28-2EA043.svg)](#-project-structure)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -44,7 +44,7 @@
 │ Browser    │ ─▶ │ Vite SPA   │ ─▶ │ Python stdlib    │ ─▶ │ Hermes Agent    │
 │ PWA · App  │    │ React 19   │    │ HTTP + SSE       │    │ (echo/gw/embed) │
 └────────────┘    └────────────┘    └──────────────────┘    └─────────────────┘
-                    28 routes         148 modules · 115 endpoints
+                    28 routes         148 modules · 118 endpoints
 ```
 
 ---
@@ -54,7 +54,7 @@
 | | |
 | :-: | --- |
 | 🏗️ | **26 phases · 100% complete** (Phase 0 → 25 + 14.5 hotfix). 별도 PR 단위로 분할 가능한 모듈 구조. |
-| 🧪 | **130 pytest + 20 vitest 통과** (커버리지 ≥ 80%). Echo 모드로 Hermes 없이도 전 기능 검증. |
+| 🧪 | **135 pytest + 20 vitest 통과** (커버리지 ≥ 80%). Echo 모드로 Hermes 없이도 전 기능 검증. |
 | 🔌 | **14 LLM provider** + **16 messaging platform** + **6 memory backend** + **5 코드 그래프 언어** plugin-style 통합. |
 | 🧠 | **Transcript drift / tool-evidence repair · compression alias · auto-RAG · GBrain 합성 답변** — 모두 LLM-less 추출 기반. |
 | 🛡️ | **다중 인증** (Password · Bearer · OAuth · WebAuthn passkey) + **fail-closed remote bind** + **exec feature gate** + **PII redact at ingress** + **11 패턴 log redact**. |
@@ -109,7 +109,7 @@
 | 기능 | 내용 |
 | --- | --- |
 | **Workspace** | 파일 트리 · 인라인 에디터 (dirty state) · path traversal 가드 (`_safe_path()`) · 2MB inline read |
-| **Real PTY** | stdlib `pty` 기반 · SSE 양방향 · idle 30분 자동 종료 · 명령 allowlist + `allow_unsafe` 우회 옵션 |
+| **Terminal · Real PTY** | stdlib `pty` 기반 · SSE 양방향 · idle 30분 자동 종료 · `/api/terminal/status` 실제 gate 표시 · 명령 allowlist + `allow_unsafe` 우회 옵션 |
 | **Browser-use** | Playwright 기반 · 도메인 화이트리스트 + private IP 차단 · 6 actions (navigate/click/type/screenshot/extract/eval) |
 | **Office 3D (Claw3d)** | three.js + react-three-fiber + rapier · `VITE_FEATURE_3D=true` opt-in · lazy chunk · 모바일 자동 2D fallback |
 
@@ -310,6 +310,7 @@ HERMES_GUI_PASSWORD=hermes-demo \
 ```
 
 - 비활성 상태에서 `/api/terminal/exec` · `/api/pty` · `/api/cron` POST · `/api/swarm/workers` POST 는 `HTTP 403 exec_disabled` 응답
+- `/api/terminal/status` 는 인증 후 `exec_available` · `blocked_reason` · `bind_host` 로 실제 실행 가능 여부를 표시
 - 외부 bind + exec 요청 시 `HTTP 403 exec_remote_bind_disabled` (`ALLOW_REMOTE_EXEC=1` 없으면)
 </details>
 
@@ -331,7 +332,7 @@ HERMES_GUI_PASSWORD=hermes-demo \
 └──────────────────────────────────────────────────────────────────────────────┘
                                   ↓ HTTP + SSE  ↑
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  apps/server — Python stdlib HTTP (framework-free) · 148 모듈 · 115 endpoints │
+│  apps/server — Python stdlib HTTP (framework-free) · 148 모듈 · 118 endpoints │
 │  api/                                                                          │
 │  ├─ auth · oauth · passkeys · streaming · runtime_adapter · chat              │
 │  ├─ sessions/ {lifecycle, recovery, events, ops, compression, search}         │
@@ -384,7 +385,7 @@ hermes-agent-gui/
 │   │   ├── public/               # favicon · apple-touch-icon · offline.html
 │   │   └── vite.config.ts        # multi-mode: spa | singlefile | electron
 │   │
-│   └── server/                   # Python stdlib HTTP · 148 modules · 115 endpoints
+│   └── server/                   # Python stdlib HTTP · 148 modules · 118 endpoints
 │       ├── server.py             # router + SPA fallback + security headers
 │       ├── bootstrap.py          # interpreter ABI check + first-run installer
 │       ├── serve_singlefile.py   # single-file deploy server
@@ -439,7 +440,7 @@ hermes-agent-gui/
 
 | 영역 | 도구 | 상태 |
 | --- | --- | --- |
-| Backend unit + integration | pytest | **133 passed** (Phase 25 포함) |
+| Backend unit + integration | pytest | **135 passed** (Phase 25 + terminal/session gate 보강 포함) |
 | Frontend unit | vitest | **20 passed** |
 | Frontend e2e | playwright | 회귀용 (선택) |
 | Type check | `tsc --noEmit` | 0 errors |

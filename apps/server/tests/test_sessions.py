@@ -17,6 +17,26 @@ def test_session_crud(client):
     assert status == 200
 
 
+def test_session_stream_route_precedes_session_id_route(server):
+    import json
+    import urllib.request
+
+    _, _, base = server
+    login_req = urllib.request.Request(
+        base + "/api/auth/login",
+        data=json.dumps({"password": "test-pass"}).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(login_req, timeout=5) as login_resp:
+        cookie = login_resp.headers["Set-Cookie"].split(";", 1)[0]
+
+    stream_req = urllib.request.Request(base + "/api/sessions/_stream", headers={"Cookie": cookie})
+    with urllib.request.urlopen(stream_req, timeout=5) as stream_resp:
+        assert stream_resp.status == 200
+        assert stream_resp.readline().decode("utf-8").strip() == "event: ready"
+
+
 def test_session_health_drift_repair(client):
     client("POST", "/api/auth/login", body={"password": "test-pass"})
     _, sess = client("POST", "/api/sessions", body={"title": "drift"})

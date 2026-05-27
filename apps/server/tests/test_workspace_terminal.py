@@ -1,3 +1,10 @@
+from types import SimpleNamespace
+
+from api.config import Config
+from api.router import Request
+from api.terminal import register_routes as register_terminal_routes
+
+
 def test_workspace_crud(client):
     client("POST", "/api/auth/login", body={"password": "test-pass"})
 
@@ -18,6 +25,13 @@ def test_workspace_crud(client):
 
 def test_terminal_disabled_by_default(client):
     client("POST", "/api/auth/login", body={"password": "test-pass"})
+    status, body = client("GET", "/api/terminal/status")
+    assert status == 200
+    assert body["exec_enabled"] is False
+    assert body["exec_available"] is False
+    assert body["blocked_reason"] == "exec_disabled"
+    assert "pwd" in body["allowlist"]
+
     status, body = client("POST", "/api/terminal/exec", body={"cmd": "ls"})
     assert status == 403
     assert body["error"] == "exec_disabled"
@@ -32,6 +46,13 @@ def test_pty_disabled_by_default(client):
 
 def test_terminal_allowlist(client_exec):
     client_exec("POST", "/api/auth/login", body={"password": "test-pass"})
+    status, body = client_exec("GET", "/api/terminal/status")
+    assert status == 200
+    assert body["exec_enabled"] is True
+    assert body["exec_available"] is True
+    assert body["exec_allow_remote"] is False
+    assert body["blocked_reason"] is None
+
     status, body = client_exec("POST", "/api/terminal/exec", body={"cmd": "ls"})
     assert status == 200
     assert body["exit_code"] == 0
@@ -39,3 +60,42 @@ def test_terminal_allowlist(client_exec):
     status, body = client_exec("POST", "/api/terminal/exec", body={"cmd": "rm -rf /"})
     assert status == 403
     assert body["error"] == "command_not_in_allowlist"
+
+
+def test_terminal_status_reports_remote_bind_block():
+    cfg = Config(
+        password=None,
+        bearer_token="tok",
+        secret=b"secret",
+        fake_backend="echo",
+        hermes_api_url=None,
+        hermes_api_token=None,
+        hermes_dashboard_url=None,
+        fail_open=False,
+        exec_enabled=True,
+        exec_allow_remote=False,
+    )
+    router = register_terminal_routes(cfg)
+    resolved = router.resolve("GET", "/api/terminal/status")
+    assert resolved is not None
+    handler, params = resolved
+    req = Request(
+        method="GET",
+        path="/api/terminal/status",
+        query={},
+        headers={"authorization": "Bearer tok"},
+        raw=SimpleNamespace(
+            server=SimpleNamespace(server_address=("0.0.0.0", 8800)),
+            client_address=("127.0.0.1", 12345),
+        ),
+    )
+    req.params = params
+
+    resp = handler(req)
+    assert resp is not None
+    assert resp.status == 200
+    assert isinstance(resp.body, dict)
+    assert resp.body["exec_enabled"] is True
+    assert resp.body["exec_available"] is False
+    assert resp.body["blocked_reason"] == "exec_remote_bind_disabled"
+    assert resp.body["bind_host"] == "0.0.0.0"

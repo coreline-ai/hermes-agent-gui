@@ -141,7 +141,17 @@ export interface ExecResult {
   truncated: boolean;
   cwd: string;
 }
+export interface TerminalStatus {
+  exec_enabled: boolean;
+  exec_available: boolean;
+  exec_allow_remote: boolean;
+  blocked_reason: string | null;
+  bind_host?: string | null;
+  allowlist: string[];
+  detail: string;
+}
 export const Terminal = {
+  status: () => apiFetch<TerminalStatus>('/api/terminal/status'),
   exec: (cmd: string, cwd?: string, allow_unsafe = false) =>
     apiFetch<ExecResult>('/api/terminal/exec', {
       method: 'POST',

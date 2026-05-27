@@ -44,6 +44,31 @@ def _is_safe(argv: list[str]) -> bool:
 def register_routes(cfg: Config) -> Router:
     router = Router()
 
+    @router.route("GET", "/api/terminal/status")
+    def _status(req: Request) -> Response:
+        if auth_module.authenticate(req, cfg) is None:
+            return Response(HTTPStatus.UNAUTHORIZED, {"error": "not_authenticated"})
+        blocked = exec_policy.require_exec(req, cfg)
+        blocked_body = blocked.body if blocked is not None and isinstance(blocked.body, dict) else {}
+        exec_available = blocked is None
+        return Response(
+            HTTPStatus.OK,
+            {
+                "exec_enabled": cfg.exec_enabled,
+                "exec_available": exec_available,
+                "exec_allow_remote": cfg.exec_allow_remote,
+                "blocked_reason": None if exec_available else blocked_body.get("error"),
+                "bind_host": blocked_body.get("bind_host"),
+                "allowlist": sorted(EXEC_ALLOWED_BINS),
+                "detail": (
+                    "Terminal execution is enabled for allowlisted commands."
+                    if exec_available
+                    else blocked_body.get("detail")
+                    or "Terminal execution is disabled. Restart with HERMES_GUI_ENABLE_EXEC=1."
+                ),
+            },
+        )
+
     @router.route("POST", "/api/terminal/exec")
     def _exec(req: Request) -> Response:
         if auth_module.authenticate(req, cfg) is None:
