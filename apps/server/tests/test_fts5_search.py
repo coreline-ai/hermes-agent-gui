@@ -31,6 +31,20 @@ def test_incremental_indexing_after_append(tmp_path: Path):
     assert out["results"][0]["message_index"] == 0
 
 
+def test_search_returns_plain_snippet_parts_for_safe_react_render(tmp_path: Path):
+    store = SessionStore(tmp_path / "sessions.db")
+    sess = store.create(title="XSS")
+    store.append_messages(sess.id, [Message("user", '<img src=x onerror=alert(1)> redis')])
+
+    out = search_messages(store, "redis")
+    result = out["results"][0]
+
+    assert "&lt;img" in result["snippet"]
+    assert "<img" not in result["snippet"]
+    assert any(part["text"].startswith("<img") for part in result["snippet_parts"])
+    assert any(part["highlight"] and part["text"].lower() == "redis" for part in result["snippet_parts"])
+
+
 def test_backfill_idempotent(tmp_path: Path):
     store = SessionStore(tmp_path / "sessions.db")
     sess = store.create(title="Backfill")

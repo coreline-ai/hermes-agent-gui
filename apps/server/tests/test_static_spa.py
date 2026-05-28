@@ -1,6 +1,7 @@
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -11,6 +12,7 @@ def test_static_spa_serving_and_api_passthrough(tmp_path, monkeypatch):
     assets.mkdir(parents=True)
     (dist / "index.html").write_text("<!doctype html><div id=\"root\">SPA</div>", encoding="utf-8")
     (assets / "app.js").write_text("console.log('ok')", encoding="utf-8")
+    (assets / "app.js.map").write_text("{}", encoding="utf-8")
 
     monkeypatch.setenv("HERMES_GUI_PASSWORD", "test-pass")
     monkeypatch.setenv("HERMES_GUI_FAKE_BACKEND", "echo")
@@ -27,7 +29,7 @@ def test_static_spa_serving_and_api_passthrough(tmp_path, monkeypatch):
 
     cfg = config_mod.load()
     router = build_router(cfg)
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(router))
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(router, cfg=cfg))
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     time.sleep(0.1)
@@ -36,6 +38,7 @@ def test_static_spa_serving_and_api_passthrough(tmp_path, monkeypatch):
         root = urllib.request.urlopen(base + "/")
         assert root.status == 200
         assert root.headers["Cache-Control"] == "no-store"
+        assert "script-src 'self';" in root.headers["Content-Security-Policy"]
         assert "SPA" in root.read().decode("utf-8")
 
         route = urllib.request.urlopen(base + "/chat")
@@ -45,6 +48,13 @@ def test_static_spa_serving_and_api_passthrough(tmp_path, monkeypatch):
         asset = urllib.request.urlopen(base + "/assets/app.js")
         assert asset.status == 200
         assert "immutable" in asset.headers["Cache-Control"]
+
+        try:
+            urllib.request.urlopen(base + "/assets/app.js.map")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 404
+        else:  # pragma: no cover
+            raise AssertionError("source map should not be served by default")
 
         health = urllib.request.urlopen(base + "/api/health")
         assert health.status == 200

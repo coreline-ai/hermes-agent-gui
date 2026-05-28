@@ -15,12 +15,14 @@ import time
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Final
+from urllib.parse import urlsplit
 
 from .config import Config
 from .router import Request, Response, Router
 
 COOKIE_NAME: Final = "hermes_gui_auth"
 SESSION_TTL_SECONDS: Final = 30 * 24 * 60 * 60  # 30 days
+UNSAFE_METHODS: Final = {"POST", "PUT", "PATCH", "DELETE"}
 
 router = Router()
 
@@ -70,6 +72,66 @@ def _is_expired(s: Session) -> bool:
     return time.time() >= s.expires_at
 
 
+def _valid_bearer(req: Request, cfg: Config) -> bool:
+    return bool(
+        cfg.bearer_token
+        and (presented := req.bearer())
+        and hmac.compare_digest(presented, cfg.bearer_token)
+    )
+
+
+def _request_origin(req: Request) -> str:
+    proto = req.headers.get("x-forwarded-proto") or "http"
+    host = req.headers.get("x-forwarded-host") or req.headers.get("host") or "127.0.0.1:8800"
+    return f"{proto}://{host}"
+
+
+def _same_origin(req: Request, origin: str) -> bool:
+    try:
+        expected = urlsplit(_request_origin(req))
+        actual = urlsplit(origin)
+    except ValueError:
+        return False
+    return (
+        actual.scheme == expected.scheme
+        and (actual.hostname or "").lower() == (expected.hostname or "").lower()
+        and (actual.port or (443 if actual.scheme == "https" else 80))
+        == (expected.port or (443 if expected.scheme == "https" else 80))
+    )
+
+
+def csrf_guard(req: Request, cfg: Config) -> Response | None:
+    """Block cross-site unsafe requests that rely on the GUI auth cookie."""
+
+    if req.method.upper() not in UNSAFE_METHODS:
+        return None
+    if not req.cookie(COOKIE_NAME) or _valid_bearer(req, cfg):
+        return None
+    if req.headers.get("sec-fetch-site", "").lower() == "cross-site":
+        return Response(HTTPStatus.FORBIDDEN, {"error": "csrf_blocked", "detail": "cross-site request blocked"})
+    origin = req.headers.get("origin")
+    if origin and not _same_origin(req, origin):
+        return Response(HTTPStatus.FORBIDDEN, {"error": "csrf_blocked", "detail": "origin mismatch"})
+    return None
+
+
+def _should_secure_cookie(req: Request) -> bool:
+    return (req.headers.get("x-forwarded-proto") or "").lower() == "https"
+
+
+def session_cookie_header(req: Request, value: str, *, max_age: int = SESSION_TTL_SECONDS) -> str:
+    attrs = [
+        f"{COOKIE_NAME}={value}",
+        "Path=/",
+        "HttpOnly",
+        "SameSite=Lax",
+        f"Max-Age={max_age}",
+    ]
+    if _should_secure_cookie(req):
+        attrs.append("Secure")
+    return "; ".join(attrs)
+
+
 # ── Middleware entry point ───────────────────────────────────────────────────
 
 
@@ -78,10 +140,9 @@ def authenticate(req: Request, cfg: Config) -> Session | None:
 
     Order: Bearer token → cookie. Constant-time comparison throughout.
     """
-    if cfg.bearer_token and (presented := req.bearer()):
-        if hmac.compare_digest(presented, cfg.bearer_token):
-            now = int(time.time())
-            return Session(user="api-token", issued_at=now, expires_at=now + SESSION_TTL_SECONDS)
+    if _valid_bearer(req, cfg):
+        now = int(time.time())
+        return Session(user="api-token", issued_at=now, expires_at=now + SESSION_TTL_SECONDS)
     if (raw := req.cookie(COOKIE_NAME)):
         if (sess := verify_cookie(cfg.secret, raw)):
             if not _is_expired(sess):
@@ -148,20 +209,18 @@ def register_routes(cfg: Config) -> Router:
             HTTPStatus.OK,
             {"user": {"name": "local"}, "expires_at": int(time.time()) + SESSION_TTL_SECONDS},
         )
-        secure = "Secure; " if req.headers.get("x-forwarded-proto") == "https" else ""
         resp.add_header(
             "Set-Cookie",
-            f"{COOKIE_NAME}={cookie}; Path=/; HttpOnly; SameSite=Lax; "
-            f"Max-Age={SESSION_TTL_SECONDS}; {secure}",
+            session_cookie_header(req, cookie),
         )
         return resp
 
     @router.route("POST", "/api/auth/logout")
-    def _logout(_req: Request) -> Response:
+    def _logout(req: Request) -> Response:
         resp = Response(HTTPStatus.OK, {"ok": True})
         resp.add_header(
             "Set-Cookie",
-            f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+            session_cookie_header(req, "", max_age=0),
         )
         return resp
 

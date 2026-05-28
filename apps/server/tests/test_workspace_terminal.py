@@ -44,6 +44,37 @@ def test_pty_disabled_by_default(client):
     assert body["error"] == "exec_disabled"
 
 
+def test_api_numeric_validation_returns_400(client):
+    client("POST", "/api/auth/login", body={"password": "test-pass"})
+
+    for method, path, body in [
+        ("GET", "/api/inspector/logs?lines=abc", None),
+        ("POST", "/api/brain/query", {"q": "x", "depth": "abc"}),
+        ("GET", "/api/sessions/search?q=x&limit=abc", None),
+        ("POST", "/api/memory/search", {"q": "x", "k": "abc"}),
+    ]:
+        status, resp = client(method, path, body=body)
+        assert status == 400
+        assert resp["error"] == "invalid_int"
+
+
+def test_pty_input_and_resize_validation(client_exec):
+    client_exec("POST", "/api/auth/login", body={"password": "test-pass"})
+    status, body = client_exec("POST", "/api/pty", body={"cmd": ["/bin/sh", "-i"]})
+    assert status == 201
+    sid = body["id"]
+    try:
+        status, resp = client_exec("POST", f"/api/pty/{sid}/input", body={"b64": "%%%"})
+        assert status == 400
+        assert resp["error"] == "invalid_base64"
+
+        status, resp = client_exec("POST", f"/api/pty/{sid}/resize", body={"cols": "abc", "rows": 24})
+        assert status == 400
+        assert resp["error"] == "invalid_int"
+    finally:
+        client_exec("DELETE", f"/api/pty/{sid}")
+
+
 def test_terminal_allowlist(client_exec):
     client_exec("POST", "/api/auth/login", body={"password": "test-pass"})
     status, body = client_exec("GET", "/api/terminal/status")

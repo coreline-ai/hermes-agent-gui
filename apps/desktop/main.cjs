@@ -1,7 +1,7 @@
 /* eslint-disable */
 // hermes-agent-gui — Electron main process (Phase 12, unsigned dev build).
 // Spawns the Python backend as a child process, then opens a BrowserWindow
-// pointing at it. Mirrors A's electron/main.cjs structure but trimmed.
+// pointing at it. Mirrors the desktop main-process structure but trimmed.
 
 const { app, BrowserWindow, shell, ipcMain, session } = require('electron');
 const path = require('node:path');
@@ -134,6 +134,23 @@ function wireAutoUpdater() {
   });
 }
 
+const EXTERNAL_URL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
+
+function openAllowedExternalUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (!EXTERNAL_URL_PROTOCOLS.has(parsed.protocol)) {
+      console.warn(`[hermes-gui] blocked external URL protocol: ${parsed.protocol}`);
+      return;
+    }
+    shell.openExternal(parsed.toString()).catch((err) => {
+      console.warn(`[hermes-gui] openExternal failed: ${err.message}`);
+    });
+  } catch {
+    console.warn('[hermes-gui] blocked malformed external URL');
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -149,7 +166,7 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    openAllowedExternalUrl(url);
     return { action: 'deny' };
   });
 

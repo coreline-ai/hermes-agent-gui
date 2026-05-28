@@ -37,6 +37,11 @@ from .sessions.lifecycle import SESSIONS_DB, SessionStore
 
 ARCHIVE_VERSION = "1.0"
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
+MAX_ARCHIVE_FILES = 10_000
+MAX_ARCHIVE_MEMBER_BYTES = 256 * 1024 * 1024
+MAX_ARCHIVE_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
+MAX_ARCHIVE_MANIFEST_BYTES = 2 * 1024 * 1024
+_COPY_CHUNK_BYTES = 1024 * 1024
 
 # Keep in sync with docs/review/11-implementation-plan-full.md and Phase 20 backup.
 ARCHIVE_EXCLUDE_PATTERNS = [
@@ -92,6 +97,24 @@ def _sanitize_profile_name(name: str) -> str:
 
 def _sha256(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def _sha256_stream(src, target: Path, *, member_name: str, remaining_bytes: int) -> tuple[str, int]:
+    """Copy a tar member to disk while hashing and enforcing an extraction budget."""
+
+    h = hashlib.sha256()
+    written = 0
+    with target.open("wb") as out:
+        while True:
+            chunk = src.read(min(_COPY_CHUNK_BYTES, max(1, remaining_bytes - written)))
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > remaining_bytes:
+                raise ArchiveError(f"archive uncompressed size limit exceeded at {member_name}")
+            h.update(chunk)
+            out.write(chunk)
+    return "sha256:" + h.hexdigest(), written
 
 
 def _file_sha256(path: Path) -> str:
@@ -341,10 +364,14 @@ def _load_and_verify_archive(payload: bytes, tmp: Path) -> dict:
     try:
         with tarfile.open(fileobj=BytesIO(payload), mode="r:gz") as tf:
             members = tf.getmembers()
+            if len(members) > MAX_ARCHIVE_FILES + 1:  # MANIFEST.json + regular payload files
+                raise ArchiveError(f"too many archive members: {len(members)} > {MAX_ARCHIVE_FILES + 1}")
             seen_files: set[str] = set()
             manifest_member = next((m for m in members if m.name == "MANIFEST.json"), None)
             if manifest_member is None or not manifest_member.isfile():
                 raise ArchiveError("manifest missing")
+            if manifest_member.size > MAX_ARCHIVE_MANIFEST_BYTES:
+                raise ArchiveError("manifest too large")
             mf = tf.extractfile(manifest_member)
             if mf is None:
                 raise ArchiveError("manifest unreadable")
@@ -355,6 +382,8 @@ def _load_and_verify_archive(payload: bytes, tmp: Path) -> dict:
             if not isinstance(checksums, dict):
                 raise ArchiveError("manifest missing checksums")
 
+            regular_files = 0
+            total_uncompressed = 0
             for member in members:
                 safe_name = _validate_archive_path(member.name)
                 if member.issym() or member.islnk() or member.isdev():
@@ -373,18 +402,29 @@ def _load_and_verify_archive(payload: bytes, tmp: Path) -> dict:
                     continue
                 if not member.isfile():
                     raise ArchiveError(f"unsupported archive member: {safe_name}")
+                regular_files += 1
+                if regular_files > MAX_ARCHIVE_FILES:
+                    raise ArchiveError(f"too many archive files: {regular_files} > {MAX_ARCHIVE_FILES}")
+                if member.size < 0:
+                    raise ArchiveError(f"invalid member size for {safe_name}")
+                if member.size > MAX_ARCHIVE_MEMBER_BYTES:
+                    raise ArchiveError(f"archive member too large: {safe_name}")
+                if total_uncompressed + member.size > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
+                    raise ArchiveError("archive uncompressed size limit exceeded")
                 expected = checksums.get(safe_name)
                 if not isinstance(expected, str):
                     raise ArchiveError(f"checksum missing for {safe_name}")
                 src = tf.extractfile(member)
                 if src is None:
                     raise ArchiveError(f"cannot read {safe_name}")
-                data = src.read()
-                actual = _sha256(data)
+                remaining = MAX_ARCHIVE_UNCOMPRESSED_BYTES - total_uncompressed
+                target.parent.mkdir(parents=True, exist_ok=True)
+                actual, written = _sha256_stream(src, target, member_name=safe_name, remaining_bytes=remaining)
+                if written != member.size:
+                    raise ArchiveError(f"archive member truncated: {safe_name}")
+                total_uncompressed += written
                 if actual != expected:
                     raise ArchiveError(f"checksum mismatch for {safe_name}")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(data)
                 seen_files.add(safe_name)
 
             extra = set(str(k) for k in checksums.keys()) - seen_files

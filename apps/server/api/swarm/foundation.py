@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -23,6 +24,11 @@ logger = logging.getLogger(__name__)
 
 SWARM_DIR = STATE_DIR / "swarm"
 SWARM_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip(".-")[:64]
+    return slug or "worker"
 
 
 @dataclass
@@ -61,7 +67,12 @@ class SwarmFoundation:
 
     def spawn(self, role: str, cmd: list[str], *, meta: dict | None = None) -> Worker:
         wid = uuid.uuid4().hex[:12]
-        log_path = SWARM_DIR / f"{role}-{wid}.log"
+        role_slug = _slug(role)
+        log_path = (SWARM_DIR / f"{role_slug}-{wid}.log").resolve()
+        try:
+            log_path.relative_to(SWARM_DIR.resolve())
+        except ValueError as exc:  # pragma: no cover - defensive belt and suspenders
+            raise ValueError("unsafe swarm log path") from exc
         worker = Worker(
             id=wid,
             role=role,
@@ -71,7 +82,7 @@ class SwarmFoundation:
             meta=meta or {},
         )
         if self._tmux:
-            sess = f"hermes-{role}-{wid}"
+            sess = f"hermes-{role_slug}-{wid}"
             joined = " ".join(_q(part) for part in cmd)
             try:
                 subprocess.run(

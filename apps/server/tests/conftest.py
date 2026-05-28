@@ -64,7 +64,7 @@ def _start_server(
 
     cfg = config_mod.load()
     router = build_router(cfg)
-    httpd = ThreadingHTTPServer((bind_host, 0), make_handler(router))
+    httpd = ThreadingHTTPServer((bind_host, 0), make_handler(router, cfg=cfg))
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()

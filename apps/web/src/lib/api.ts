@@ -675,6 +675,7 @@ export interface SearchResult {
   message_index: number;
   role: string;
   snippet: string;
+  snippet_parts?: { text: string; highlight: boolean }[];
   ts: number;
   score: number;
 }

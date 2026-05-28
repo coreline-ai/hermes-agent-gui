@@ -34,6 +34,7 @@ from . import exec_policy
 from . import streaming
 from .config import Config
 from .router import Request, Response, Router
+from .validation import ValidationError, decode_base64_field, parse_bounded_int, validation_response
 from .workspace import _safe_path
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_SHELL = os.environ.get("SHELL") or "/bin/sh"
 PTY_MAX_OUTPUT_BUFFER = 256 * 1024
 PTY_IDLE_TIMEOUT_SECONDS = 60 * 30  # auto-kill after 30 min idle
+PTY_MAX_INPUT_BYTES = 64 * 1024
 
 
 @dataclass
@@ -235,8 +237,16 @@ def register_routes(cfg: Config) -> Router:
         b64 = body.get("b64")
         if isinstance(data, str):
             payload = data.encode("utf-8")
+            if len(payload) > PTY_MAX_INPUT_BYTES:
+                return Response(
+                    HTTPStatus.PAYLOAD_TOO_LARGE,
+                    {"error": "payload_too_large", "field": "data", "max": PTY_MAX_INPUT_BYTES},
+                )
         elif isinstance(b64, str):
-            payload = base64.b64decode(b64)
+            try:
+                payload = decode_base64_field(b64, field="b64", max_bytes=PTY_MAX_INPUT_BYTES)
+            except ValidationError as exc:
+                return validation_response(exc)
         else:
             return Response(HTTPStatus.BAD_REQUEST, {"error": "data_or_b64_required"})
         try:
@@ -261,8 +271,11 @@ def register_routes(cfg: Config) -> Router:
             body = req.json()
         except ValueError:
             return Response(HTTPStatus.BAD_REQUEST, {"error": "invalid_json"})
-        cols = int(body.get("cols") or 80)
-        rows = int(body.get("rows") or 24)
+        try:
+            cols = parse_bounded_int(body.get("cols"), field="cols", default=80, min_value=20, max_value=300)
+            rows = parse_bounded_int(body.get("rows"), field="rows", default=24, min_value=5, max_value=100)
+        except ValidationError as exc:
+            return validation_response(exc)
         _resize(sess, cols, rows)
         return Response(HTTPStatus.OK, {"cols": cols, "rows": rows})
 

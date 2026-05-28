@@ -36,8 +36,8 @@ DEFAULT_HTML = Path(
 ).expanduser()
 
 
-def _wrap_handler(router, html_path: Path):
-    base = make_handler(router)
+def _wrap_handler(router, html_path: Path, cfg=None):
+    base = make_handler(router, cfg=cfg, allow_inline_assets=True)
 
     class SingleFileHandler(base):  # type: ignore[misc]
         def do_GET(self):  # noqa: N802
@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     cfg = config_mod.load()
     _enforce_fail_closed(cfg, args.host)
     router = build_router(cfg)
-    handler = _wrap_handler(router, Path(args.html))
+    handler = _wrap_handler(router, Path(args.html), cfg)
     srv = ThreadingHTTPServer((args.host, args.port), handler)
     logger.info("[hermes-agent-gui · singlefile] http://%s:%s · html=%s", args.host, args.port, args.html)
     try:

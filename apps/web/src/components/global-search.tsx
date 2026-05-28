@@ -1,7 +1,27 @@
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Search } from '@/lib/api';
+import { Search, type SearchResult } from '@/lib/api';
+
+export function SearchSnippet({ result }: { result: Pick<SearchResult, 'snippet' | 'snippet_parts'> }) {
+  const parts = result.snippet_parts?.length
+    ? result.snippet_parts
+    : [{ text: result.snippet, highlight: false }];
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.highlight ? (
+          <em key={index} className="rounded bg-sky-500/15 px-0.5 font-semibold not-italic text-sky-700 dark:text-sky-200">
+            {part.text}
+          </em>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
@@ -60,7 +80,9 @@ export function GlobalSearch() {
                 <p className="text-sm font-medium">{result.session_title}</p>
                 <span className="text-[10px] text-black/45 dark:text-white/45">#{result.message_index}</span>
               </div>
-              <p className="mt-1 text-xs leading-5 text-black/65 dark:text-white/65" dangerouslySetInnerHTML={{ __html: result.snippet }} />
+              <p className="mt-1 text-xs leading-5 text-black/65 dark:text-white/65">
+                <SearchSnippet result={result} />
+              </p>
             </Link>
           ))}
         </div>

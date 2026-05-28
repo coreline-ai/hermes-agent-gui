@@ -7,10 +7,10 @@
 ### One GUI for [Hermes Agent](https://github.com/NousResearch/hermes-agent) · Web · PWA · Single-file · Electron
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![Status](https://img.shields.io/badge/status-Phase_25_complete-2EA043.svg)](#%EF%B8%8F-roadmap)
-[![Pytest](https://img.shields.io/badge/pytest-150_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
-[![Vitest](https://img.shields.io/badge/vitest-20_passed-2EA043.svg?logo=vitest&logoColor=white)](#-testing)
-[![Endpoints](https://img.shields.io/badge/endpoints-118-2EA043.svg)](#%EF%B8%8F-architecture)
+[![Status](https://img.shields.io/badge/status-Phase_25%2B_security_hardened-2EA043.svg)](#%EF%B8%8F-roadmap)
+[![Pytest](https://img.shields.io/badge/pytest-158_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
+[![Vitest](https://img.shields.io/badge/vitest-21_passed-2EA043.svg?logo=vitest&logoColor=white)](#-testing)
+[![Endpoints](https://img.shields.io/badge/endpoints-131-2EA043.svg)](#%EF%B8%8F-architecture)
 [![Routes](https://img.shields.io/badge/routes-28-2EA043.svg)](#-project-structure)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -22,7 +22,7 @@
 
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](./docker/)
 [![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](#%EF%B8%8F-build-targets)
-[![Electron](https://img.shields.io/badge/Electron-desktop-47848F?logo=electron&logoColor=white)](./electron/)
+[![Electron](https://img.shields.io/badge/Electron-desktop-47848F?logo=electron&logoColor=white)](./apps/desktop/)
 [![Single-file](https://img.shields.io/badge/Single--file-HTML-ff6f61.svg)](#%EF%B8%8F-build-targets)
 [![i18n](https://img.shields.io/badge/i18n-en_·_ko-blue.svg)](./apps/web/src/locales/)
 [![Themes](https://img.shields.io/badge/themes-6-9333EA.svg)](#-features)
@@ -44,8 +44,20 @@
 │ Browser    │ ─▶ │ Vite SPA   │ ─▶ │ Python stdlib    │ ─▶ │ Hermes Agent    │
 │ PWA · App  │    │ React 19   │    │ HTTP + SSE       │    │ (echo/gw/embed) │
 └────────────┘    └────────────┘    └──────────────────┘    └─────────────────┘
-                    28 routes         148 modules · 118 endpoints
+                    28 routes         149 modules · 131 endpoints
 ```
+
+---
+
+## 📸 Current UI Snapshot
+
+<div align="center">
+
+![Hermes Agent GUI chat screen](./docs/assets/readme-chat-demo.png)
+
+<sub>React 19 SPA + Python stdlib backend · 로그인 후 Chat 화면 · 2026-05-28 로컬 캡처</sub>
+
+</div>
 
 ---
 
@@ -54,10 +66,10 @@
 | | |
 | :-: | --- |
 | 🏗️ | **26 phases · 100% complete** (Phase 0 → 25 + 14.5 hotfix). 별도 PR 단위로 분할 가능한 모듈 구조. |
-| 🧪 | **135 pytest + 20 vitest 통과** (커버리지 ≥ 80%). Echo 모드로 Hermes 없이도 전 기능 검증. |
+| 🧪 | **158 pytest + 21 vitest 통과** (커버리지 ≥ 80%). Echo 모드로 Hermes 없이도 전 기능 검증. |
 | 🔌 | **14 LLM provider** + **16 messaging platform** + **6 memory backend** + **5 코드 그래프 언어** plugin-style 통합. |
 | 🧠 | **Transcript drift / tool-evidence repair · compression alias · auto-RAG · GBrain 합성 답변** — 모두 LLM-less 추출 기반. |
-| 🛡️ | **다중 인증** (Password · Bearer · OAuth · WebAuthn passkey) + **fail-closed remote bind** + **exec feature gate** + **PII redact at ingress** + **11 패턴 log redact**. |
+| 🛡️ | **다중 인증** (Password · Bearer · OAuth · WebAuthn passkey) + **fail-closed remote bind** + **exec feature gate** + **CSRF origin guard** + **archive expansion cap** + **PII/log redact**. |
 | 🎨 | **6 테마** (Hermes · Nous · Bronze · Slate · Mono · **Glass**) + 자체 `t()` i18n (en + ko) + custom dark variant. |
 | 📦 | **단일파일 빌드** ≈ 800KB (curl + python 으로 배포). `vite-plugin-singlefile` + `serve_singlefile.py`. |
 | 🐳 | **3종 Docker compose** (1/2/3 컨테이너) + Caddy 자동 TLS + `ctl.sh` 데몬 + 자동 업데이트. |
@@ -73,7 +85,7 @@
 | **Chat (SSE)** | `/api/chat/stream` · token/done/error 이벤트 · 자동 세션 영속화 · slash command intercept |
 | **Sessions** | 5-모듈 라이프사이클 (lifecycle/recovery/events/ops/compression) · transcript drift / tool-evidence repair · compression alias 영속 |
 | **Slash commands (22)** | `/new` `/clear` `/help` `/model` `/persona` `/usage` `/skills` `/memory` `/tools` `/web` `/browse` `/image` `/code` `/shell` `/compact` … |
-| **Search (FTS5)** | `Cmd+K` 글로벌 검색 · incremental indexing · session id alias · porter unicode61 tokenizer |
+| **Search (FTS5)** | `Cmd+K` 글로벌 검색 · incremental indexing · session id alias · porter unicode61 tokenizer · React-safe snippet parts |
 | **Persona** | SOUL.md presets (6) · Monaco editor · 100KB 한도 · profile별 격리 |
 | **Auto-Compress + RAG** | 임계값 40 turns / 75% context · lexical fallback (sqlite-vss optional) · top-k inject to system prompt |
 
@@ -109,8 +121,8 @@
 | 기능 | 내용 |
 | --- | --- |
 | **Workspace** | 파일 트리 · 인라인 에디터 (dirty state) · path traversal 가드 (`_safe_path()`) · 2MB inline read |
-| **Terminal · Real PTY** | stdlib `pty` 기반 · SSE 양방향 · idle 30분 자동 종료 · `/api/terminal/status` 실제 gate 표시 · 명령 allowlist + `allow_unsafe` 우회 옵션 |
-| **Browser-use** | dependency-free HTTP fallback 우선 · 도메인 화이트리스트 + private IP 차단 · Playwright/Chromium backend 는 옵션 후속 |
+| **Terminal · Real PTY** | stdlib `pty` 기반 · SSE 양방향 · idle 30분 자동 종료 · 입력/base64/resize validation · `/api/terminal/status` 실제 gate 표시 · 명령 allowlist |
+| **Browser-use** | dependency-free HTTP fallback 우선 · 도메인 화이트리스트 + private IP 차단 + redirect 재검증 · Playwright/Chromium backend 는 옵션 후속 |
 | **Office 3D (Claw3d)** | three.js + react-three-fiber + rapier · `VITE_FEATURE_3D=true` opt-in · lazy chunk · 모바일 자동 2D fallback |
 
 ### 📋 Tasks · Workflows · Multi-Agent
@@ -142,7 +154,7 @@
 | **PWA** | service worker · network-only `/api/*` · CacheFirst assets · offline.html shell · iOS apple-touch-icon + web-app meta |
 | **Sidebar groups** | 세션 사이드바를 source (Web/Telegram/Discord) 별 `<details>` 아코디언 |
 | **Virtualized scroll** | React Virtuoso · 메시지 500개 초과 시 자동 활성 |
-| **Backup/Debug dump** | tar.gz export (device-secret + passkeys.json + locks 제외) · zip debug dump (version + OS + capabilities + redacted logs) |
+| **Backup/Debug dump** | tar.gz export/import checksum · 압축 해제 총량/파일 수 cap · device-secret/passkeys/locks 제외 · zip debug dump |
 | **Auto-updater** | `electron-updater` 와이어 + GitHub Releases 채널 + renderer 알림 |
 | **Docker** | 3종 compose (1-컨테이너 embedded / 2-컨테이너 agent+gui / 3-컨테이너 + Caddy 자동 TLS) |
 | **Daemon** | `ctl.sh start/stop/restart/status/logs` · PID 파일 + `~/.hermes-agent-gui/gui.log` · one-line installer |
@@ -178,7 +190,8 @@ HERMES_GUI_PASSWORD=hermes-demo HERMES_GUI_FAKE_BACKEND=echo \
 
 # 3. 별도 터미널 — 프론트엔드 dev 서버
 pnpm install
-pnpm dev --port 5180 --host 127.0.0.1 --strictPort
+VITE_API_BASE=http://127.0.0.1:8800 \
+  pnpm --filter @hermes-agent-gui/web dev --host 127.0.0.1 --port 5180 --strictPort
 
 # → http://localhost:5180/  ·  비밀번호: hermes-demo
 ```
@@ -241,7 +254,7 @@ docker compose -f docker/docker-compose.three.yml up
 <summary>🖥️ Electron 데스크탑 (unsigned dev build)</summary>
 
 ```bash
-pnpm --filter @hermes-agent-gui/electron build
+pnpm --filter @hermes-agent-gui/desktop build
 # → release/{*.dmg, *.exe, *.AppImage}
 #   macOS notarization + Windows code signing 은 후행 — unsigned dev build only
 ```
@@ -267,7 +280,7 @@ pnpm --filter @hermes-agent-gui/electron build
 | **SPA** (기본) | `pnpm build` | `dist/` + chunks | 일반 self-host |
 | **PWA** | `pnpm build` | + `sw.js` + `manifest.webmanifest` | 모바일 설치 |
 | **Single-file** | `pnpm build:singlefile` | `dist/index.html` (~800KB) | curl + python 배포 |
-| **Electron** | `pnpm --filter @hermes-agent-gui/electron build` | `.dmg` · `.exe` · `.AppImage` | 데스크탑 |
+| **Electron** | `pnpm --filter @hermes-agent-gui/desktop build` | `.dmg` · `.exe` · `.AppImage` | 데스크탑 |
 
 ---
 
@@ -289,6 +302,8 @@ pnpm --filter @hermes-agent-gui/electron build
 | `HERMES_GUI_ENABLE_EXEC` | PTY/cron-shell/swarm-spawn 활성 | `false` |
 | `HERMES_GUI_ALLOW_REMOTE_EXEC` | 외부 bind 환경에서도 exec 허용 | `false` |
 | `HERMES_GUI_BROWSER_ALLOWLIST` | browser-use 도메인 화이트리스트 | `github.com,stackoverflow.com,…` |
+| `HERMES_GUI_PUBLISH_SOURCEMAPS` | production sourcemap 생성 opt-in | `false` |
+| `HERMES_GUI_SERVE_SOURCEMAPS` | backend 정적 `.map` 파일 서빙 opt-in | `false` |
 | `HERMES_SWARM_WORKER_CMD` | Swarm worker 명령 템플릿 | `echo {role}:{text}` |
 | `VITE_API_BASE` | dev 모드 API 프록시 타깃 | `http://127.0.0.1:8800` |
 | `VITE_FEATURE_3D` | 3D Office lazy chunk 활성 | `false` |
@@ -332,7 +347,7 @@ HERMES_GUI_PASSWORD=hermes-demo \
 └──────────────────────────────────────────────────────────────────────────────┘
                                   ↓ HTTP + SSE  ↑
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  apps/server — Python stdlib HTTP (framework-free) · 148 모듈 · 118 endpoints │
+│  apps/server — Python stdlib HTTP (framework-free) · 149 모듈 · 131 endpoints │
 │  api/                                                                          │
 │  ├─ auth · oauth · passkeys · streaming · runtime_adapter · chat              │
 │  ├─ sessions/ {lifecycle, recovery, events, ops, compression, search}         │
@@ -385,12 +400,12 @@ hermes-agent-gui/
 │   │   ├── public/               # favicon · apple-touch-icon · offline.html
 │   │   └── vite.config.ts        # multi-mode: spa | singlefile | electron
 │   │
-│   └── server/                   # Python stdlib HTTP · 148 modules · 118 endpoints
+│   └── server/                   # Python stdlib HTTP · 149 modules · 131 endpoints
 │       ├── server.py             # router + SPA fallback + security headers
 │       ├── bootstrap.py          # interpreter ABI check + first-run installer
 │       ├── serve_singlefile.py   # single-file deploy server
 │       ├── cli.py                # hermes-agent-gui CLI (doctor, purge, …)
-│       └── api/                  # 148 modules total
+│       └── api/                  # 144 api modules + validation helpers
 │           ├── auth · oauth · passkeys · streaming · runtime_adapter · chat
 │           ├── sessions/         # 5 modules + search (FTS5)
 │           ├── messaging/        # registry · credentials · 16 platforms
@@ -408,11 +423,11 @@ hermes-agent-gui/
 │           ├── tasks · cron · dashboard · usage · telemetry
 │           ├── pii · exec_policy · profile_archive · backup · debug_dump
 │           └── slash_commands
-│
-├── electron/                     # Electron unsigned dev build
-│   ├── main.cjs                  # backend child + autoUpdater (Phase 20)
-│   ├── preload.cjs               # context-isolated bridge
-│   └── package.json              # electron-builder targets
+│   │
+│   └── desktop/                  # Electron unsigned dev build
+│       ├── main.cjs              # backend child + autoUpdater (Phase 20)
+│       ├── preload.cjs           # context-isolated bridge
+│       └── package.json          # electron-builder targets
 │
 ├── docker/                       # 1/2/3-container compose
 │   ├── Dockerfile                # multi-stage: node22 build → python3.12 runtime
@@ -425,13 +440,14 @@ hermes-agent-gui/
 │   ├── ctl.sh                    # daemon start/stop/restart/status/logs
 │   └── install.sh                # one-line installer
 │
-└── docs/review/                  # 14개 설계·리뷰 문서 (≈ 6,900 LOC)
+└── docs/review/                  # 15개 설계·리뷰 문서 + 보안 리뷰 보고서
     ├── 00-overview.md ~ 03-hermes-ui.md       (분석)
     ├── 04 ~ 06                                (매트릭스 · 결정 · 통합 설계)
     ├── 07 ~ 09                                (Phase 0~14 산출물)
     ├── 10-feature-roadmap-v2.md               (추가 오픈소스 분석)
     ├── 11-implementation-plan-full.md         (마스터 플랜 · 2,815 LOC)
-    └── 12-impl-plan-checklist.md              (체크박스 + 137 테스트 케이스)
+    ├── 12-impl-plan-checklist.md              (체크박스 + 137 테스트 케이스)
+    └── 13-expert-analysis-implementation-items.md
 ```
 
 ---
@@ -440,13 +456,13 @@ hermes-agent-gui/
 
 | 영역 | 도구 | 상태 |
 | --- | --- | --- |
-| Backend unit + integration | pytest | **150 passed** (Phase 25 + terminal/session gate 보강 포함) |
-| Frontend unit | vitest | **20 passed** |
+| Backend unit + integration | pytest | **158 passed** (Phase 25 + security hardening 회귀 포함) |
+| Frontend unit | vitest | **21 passed** |
 | Frontend e2e | playwright | 회귀용 (선택) |
 | Type check | `tsc --noEmit` | 0 errors |
 | Lint | eslint flat config | `pnpm lint` |
 | CI | GitHub Actions | `.github/workflows/{ci,security}.yml` |
-| Security audit | `pip-audit` · `pnpm audit` | 주간 cron |
+| Security audit | `pip-audit` · `pnpm audit` | PR/main gate + 주간 cron |
 
 ```bash
 # Backend
@@ -473,12 +489,12 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
 1.  │  Network — fail-closed remote bind (host ≠ 127.0.0.1 + no auth → 거부)│
    └──────────────────────────────────────────────────────────────────────┘
    ┌──────────────────────────────────────────────────────────────────────┐
-2.  │  Browser  — CSP · X-Frame-Options: DENY · X-Content-Type-Options · │
-   │             Referrer-Policy · navigation NetworkFirst                │
+2.  │  Browser  — strict CSP · XFO DENY · nosniff · Referrer-Policy    │
+   │             source maps opt-in · PWA/API no-cache                  │
    └──────────────────────────────────────────────────────────────────────┘
    ┌──────────────────────────────────────────────────────────────────────┐
 3.  │  Auth     — Password · Bearer · HMAC cookie · OAuth (PKCE) ·       │
-   │             WebAuthn passkey (ES256+RS256, CBOR RFC 8949 fix) ·    │
+   │             WebAuthn passkey (UP/signCount) · CSRF origin guard   │
    │             login rate-limit 5/60s/IP · global POST 300/60s/IP    │
    └──────────────────────────────────────────────────────────────────────┘
    ┌──────────────────────────────────────────────────────────────────────┐
@@ -487,7 +503,7 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
    └──────────────────────────────────────────────────────────────────────┘
    ┌──────────────────────────────────────────────────────────────────────┐
 5.  │  Data     — path traversal guard · _safe_path() · SQLite WAL ·    │
-   │             credential 0600 atomic write · SQL parameterized only │
+   │             archive uncompressed/member/file caps · SQL params only│
    └──────────────────────────────────────────────────────────────────────┘
    ┌──────────────────────────────────────────────────────────────────────┐
 6.  │  Exec     — feature gate (HERMES_GUI_ENABLE_EXEC=1) · 2단계 opt-in │
@@ -496,7 +512,7 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
    ┌──────────────────────────────────────────────────────────────────────┐
 7.  │  Egress   — log redaction (11 patterns: OpenAI/Anthropic/AWS/JWT/  │
    │             GitHub PAT/Slack/Google/PEM/DB URL/Bearer/API key) ·  │
-   │             archive 에서 device-secret/passkeys/locks 제외       │
+   │             OAuth error raw-token redaction · Electron URL allowlist│
    └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -506,12 +522,12 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
 | --- | --- | --- |
 | `~/.hermes/.env` 봇 토큰 | 로컬 파일 노출 → 봇 hijack | 0600 + atomic write |
 | HMAC secret | archive 유출 → 쿠키 위조 | archive 에서 `secret` 제외 (재로그인 1회) |
-| Archive 무결성 | tar 변조 → path traversal RCE | MANIFEST SHA-256 checksum + `_safe_path()` |
+| Archive 무결성 | tar 변조 → path traversal RCE/DoS | MANIFEST SHA-256 checksum + path 검증 + member/file/uncompressed cap |
 | 사용자 PII | LLM provider 로 유출 | `api/pii.py` ingress hook (8 패턴) |
 | Webhook 위조 | 임의 호출 → LLM 비용 청구 | unique secret URL + HMAC signature + 60/분 rate limit |
-| Browser SSRF | private IP 스캔 | 도메인 화이트리스트 + RFC1918 차단 |
-| OAuth CSRF | 계정 hijack | PKCE S256 + 1회용 state + 10분 TTL |
-| Cron shell injection | RCE | `subprocess` shell=True + exec gate + audit log |
+| Browser SSRF | private IP 스캔 | 도메인 화이트리스트 + RFC1918 차단 + redirect target 재검증 |
+| OAuth CSRF | 계정 hijack | PKCE S256 + 1회용 state + 10분 TTL + cookie unsafe-method origin guard |
+| Cron shell injection | RCE | `subprocess` shell=True + exec gate + remote exec 2단계 opt-in + audit log |
 | LLM cost runaway | 자동 압축/합성 비용 폭주 | 사용자 컨펌 + daily budget (예정) |
 
 ---
@@ -558,7 +574,7 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
 | --- | --- | --- |
 | Hermes Agent 실 환경 검증 | 미수행 | 적용 환경에서 EmbeddedAdapter/GatewayAdapter 시그니처 확인 필요 |
 | Electron 코드사이닝 | unsigned only | macOS notarization · Windows EV cert (사용자 컨펌 필요) |
-| Browser-use Playwright Chromium | fallback 모드 기본 | 현재 내장 backend는 HTTP fetch/extract 중심, 실 Playwright는 옵션 후속 |
+| Browser-use Playwright Chromium | fallback 모드 기본 | 내장 HTTP fetch/extract + SSRF guard 기본, 실 Playwright는 옵션 후속 |
 | LLM 비용 폭주 차단 | 사용자 경고만 | daily budget env 추가 예정 |
 | Memory provider 6종 실 연동 | adapter interface/fallback | 외부 서비스별 실 API 검증 필요 |
 | Hermes 본체의 14 위임 메시징 platform | Hermes 본체 의존 | 본체 미설치 시 `503 hermes_agent_not_running` |
@@ -569,7 +585,7 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
 
 ## 📖 Docs
 
-[`docs/review/`](./docs/review/) 에 **14개 문서 · 약 6,900 LOC** 의 상세 자료:
+[`docs/review/`](./docs/review/) + 보안 리뷰 보고서에 **15개+ 문서 · 약 6,900 LOC** 의 상세 자료:
 
 | 문서 | 내용 |
 | --- | --- |
@@ -584,6 +600,8 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
 | [`10-feature-roadmap-v2.md`](./docs/review/10-feature-roadmap-v2.md) | 추가 8개 오픈소스 분석 + Tier 1~3 |
 | **[`11-implementation-plan-full.md`](./docs/review/11-implementation-plan-full.md)** | **마스터 플랜 · 2,815 LOC · §0 공통 표준 + 모든 Phase 의 12 섹션 상세 + 부록** |
 | **[`12-impl-plan-checklist.md`](./docs/review/12-impl-plan-checklist.md)** | **실행 가능한 체크박스 + 137 테스트 케이스** |
+| [`13-expert-analysis-implementation-items.md`](./docs/review/13-expert-analysis-implementation-items.md) | 추가 전문가 분석/구현 후보 |
+| [`security_best_practices_report.md`](./security_best_practices_report.md) | 안정화 + 전문 보안 리뷰와 권장 패치 순서 |
 
 ---
 

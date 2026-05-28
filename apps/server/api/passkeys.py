@@ -31,6 +31,9 @@ from .router import Request, Response, Router
 
 PASSKEY_FILE = STATE_DIR / "passkeys.json"
 CHALLENGE_TTL = 5 * 60
+FLAG_UP = 0x01
+FLAG_UV = 0x04
+FLAG_AT = 0x40
 _lock = threading.RLock()
 _challenges: dict[str, dict] = {}
 
@@ -300,6 +303,12 @@ def _register_finish(req: Request) -> Response:
     rp_hash = hashlib.sha256(_rp_id(req).encode()).digest()
     if not hmac.compare_digest(auth_data[:32], rp_hash):
         return Response(HTTPStatus.BAD_REQUEST, {"error": "rpIdHash_mismatch"})
+    flags = auth_data[32]
+    if not flags & FLAG_UP:
+        return Response(HTTPStatus.BAD_REQUEST, {"error": "user_presence_required"})
+    if not flags & FLAG_AT:
+        return Response(HTTPStatus.BAD_REQUEST, {"error": "attested_credential_data_required"})
+    sign_count = int.from_bytes(auth_data[33:37], "big")
     cred_id_len = int.from_bytes(auth_data[53:55], "big")
     if 55 + cred_id_len > len(auth_data):
         return Response(HTTPStatus.BAD_REQUEST, {"error": "credential_data_truncated"})
@@ -322,6 +331,8 @@ def _register_finish(req: Request) -> Response:
             "raw_id_b64": raw_id,
             "cose_key_b64": _b64u_enc(cose_cbor),
             "alg": alg,
+            "sign_count": sign_count,
+            "user_verified": bool(flags & FLAG_UV),
             "created_at": int(time.time()),
         }
     )
@@ -401,6 +412,15 @@ def _auth_finish(req: Request) -> Response:
         auth_data_bytes = _b64u_dec(auth_data_b64)
     except ValueError:
         return Response(HTTPStatus.BAD_REQUEST, {"error": "bad_authenticatorData"})
+    if len(auth_data_bytes) < 37:
+        return Response(HTTPStatus.BAD_REQUEST, {"error": "authenticatorData_too_short"})
+    rp_hash = hashlib.sha256(_rp_id(req).encode()).digest()
+    if not hmac.compare_digest(auth_data_bytes[:32], rp_hash):
+        return Response(HTTPStatus.BAD_REQUEST, {"error": "rpIdHash_mismatch"})
+    flags = auth_data_bytes[32]
+    if not flags & FLAG_UP:
+        return Response(HTTPStatus.UNAUTHORIZED, {"error": "user_presence_required"})
+    sign_count = int.from_bytes(auth_data_bytes[33:37], "big")
     signed = auth_data_bytes + hashlib.sha256(client_data_bytes).digest()
     try:
         cose_key = _parse_cose_key(_b64u_dec(cred["cose_key_b64"]))
@@ -412,13 +432,19 @@ def _auth_finish(req: Request) -> Response:
         return Response(HTTPStatus.BAD_REQUEST, {"error": "bad_signature"})
     if not _verify_signature(cose_key, signed, signature):
         return Response(HTTPStatus.UNAUTHORIZED, {"error": "signature_invalid"})
+    previous_count = int(cred.get("sign_count") or 0)
+    if previous_count and sign_count and sign_count <= previous_count:
+        return Response(HTTPStatus.UNAUTHORIZED, {"error": "sign_count_replay"})
+    if sign_count > previous_count:
+        cred["sign_count"] = sign_count
+        cred["last_used_at"] = int(time.time())
+        _write_store(store)
 
     cookie = auth_module.issue_cookie(cfg.secret, user="passkey:local")
     resp_obj = Response(HTTPStatus.OK, {"ok": True})
     resp_obj.add_header(
         "Set-Cookie",
-        f"{auth_module.COOKIE_NAME}={cookie}; Path=/; HttpOnly; SameSite=Lax; "
-        f"Max-Age={auth_module.SESSION_TTL_SECONDS}",
+        auth_module.session_cookie_header(req, cookie),
     )
     return resp_obj
 

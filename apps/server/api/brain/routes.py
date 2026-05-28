@@ -5,6 +5,7 @@ from http import HTTPStatus
 from .. import auth as auth_module
 from ..config import Config
 from ..router import Request, Response, Router
+from ..validation import ValidationError, parse_bounded_int, validation_response
 from .extractor import extract
 from .graph import list_edges, list_nodes, upsert
 from .synthesizer import synthesize
@@ -35,7 +36,11 @@ def register_routes(cfg: Config) -> Router:
         except ValueError:
             return Response(HTTPStatus.BAD_REQUEST, {"error": "invalid_json"})
         question = str(body.get("q") or "")
-        graph = query_graph(question, depth=int(body.get("depth") or 3))
+        try:
+            depth = parse_bounded_int(body.get("depth"), field="depth", default=3, min_value=1, max_value=5)
+        except ValidationError as exc:
+            return validation_response(exc)
+        graph = query_graph(question, depth=depth)
         return Response(HTTPStatus.OK, {"graph": graph, "synthesis": synthesize(question, graph)})
 
     @router.route("GET", "/api/brain/nodes")

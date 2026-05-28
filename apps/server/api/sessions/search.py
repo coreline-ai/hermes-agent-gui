@@ -11,6 +11,7 @@ from .. import auth as auth_module
 from ..config import Config
 from ..dashboard import _redact
 from ..router import Request, Response, Router
+from ..validation import ValidationError, parse_bounded_int, validation_response
 from .lifecycle import Message, Session, SessionStore
 
 
@@ -90,18 +91,47 @@ def _escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _snippet(content: str, query: str) -> str:
+def _snippet_parts(content: str, query: str) -> list[dict[str, object]]:
     redacted = _redact(content)
-    terms = re.findall(r"[\w가-힣]+", query, flags=re.UNICODE)
+    terms = re.findall(r"[\w가-힣]+", query, flags=re.UNICODE)[:8]
     lower = redacted.lower()
     pos = min([lower.find(t.lower()) for t in terms if lower.find(t.lower()) >= 0] or [0])
     start = max(0, pos - 60)
     end = min(len(redacted), pos + 180)
-    text = _escape_html(redacted[start:end])
+    window = redacted[start:end]
+    matches: list[tuple[int, int]] = []
     for term in terms:
-        safe_term = _escape_html(term)
-        text = re.sub(f"({re.escape(safe_term)})", r"<em>\1</em>", text, flags=re.IGNORECASE)
-    return ("…" if start else "") + text + ("…" if end < len(redacted) else "")
+        for match in re.finditer(re.escape(term), window, flags=re.IGNORECASE):
+            matches.append(match.span())
+    merged: list[tuple[int, int]] = []
+    for m_start, m_end in sorted(matches):
+        if not merged or m_start >= merged[-1][1]:
+            merged.append((m_start, m_end))
+        else:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], m_end))
+
+    parts: list[dict[str, object]] = []
+    if start:
+        parts.append({"text": "…", "highlight": False})
+    cursor = 0
+    for m_start, m_end in merged:
+        if cursor < m_start:
+            parts.append({"text": window[cursor:m_start], "highlight": False})
+        parts.append({"text": window[m_start:m_end], "highlight": True})
+        cursor = m_end
+    if cursor < len(window):
+        parts.append({"text": window[cursor:], "highlight": False})
+    if end < len(redacted):
+        parts.append({"text": "…", "highlight": False})
+    return parts or [{"text": "", "highlight": False}]
+
+
+def _snippet(content: str, query: str) -> str:
+    out = []
+    for part in _snippet_parts(content, query):
+        text = _escape_html(str(part["text"]))
+        out.append(f"<em>{text}</em>" if part.get("highlight") else text)
+    return "".join(out)
 
 
 def search_messages(store: SessionStore, query: str, *, limit: int = 50) -> dict:
@@ -130,6 +160,7 @@ def search_messages(store: SessionStore, query: str, *, limit: int = 50) -> dict
             "role": row[3],
             "ts": int(row[4] or 0),
             "snippet": _snippet(str(row[5] or ""), query),
+            "snippet_parts": _snippet_parts(str(row[5] or ""), query),
             "score": float(row[6] or 0.0),
         }
         for row in rows
@@ -145,7 +176,16 @@ def register_routes(cfg: Config, store: SessionStore) -> Router:
         if auth_module.authenticate(req, cfg) is None:
             return Response(HTTPStatus.UNAUTHORIZED, {"error": "not_authenticated"})
         q = (req.query.get("q") or [""])[0]
-        limit = min(100, max(1, int((req.query.get("limit") or ["50"])[0])))
+        try:
+            limit = parse_bounded_int(
+                (req.query.get("limit") or ["50"])[0],
+                field="limit",
+                default=50,
+                min_value=1,
+                max_value=100,
+            )
+        except ValidationError as exc:
+            return validation_response(exc)
         return Response(HTTPStatus.OK, search_messages(store, q, limit=limit))
 
     @router.route("POST", "/api/sessions/search/backfill")

@@ -15,6 +15,15 @@ importers:
         specifier: ^7.8.1
         version: 7.8.1
 
+  apps/desktop:
+    devDependencies:
+      electron:
+        specifier: ^40.0.0
+        version: 40.10.1
+      electron-builder:
+        specifier: ^26.0.0
+        version: 26.8.1(electron-builder-squirrel-windows@26.8.1)
+
   apps/web:
     dependencies:
       '@react-three/drei':
@@ -117,15 +126,6 @@ importers:
       vitest:
         specifier: ^3.0.0
         version: 3.2.4(@types/debug@4.1.13)(@types/node@25.9.1)(jiti@2.7.0)(jsdom@27.4.0)(lightningcss@1.32.0)(terser@5.48.0)
-
-  electron:
-    devDependencies:
-      electron:
-        specifier: ^40.0.0
-        version: 40.10.1
-      electron-builder:
-        specifier: ^26.0.0
-        version: 26.8.1(electron-builder-squirrel-windows@26.8.1)
 
 packages:
 
@@ -5494,7 +5494,7 @@ snapshots:
       fs-extra: 10.1.0
       isbinaryfile: 4.0.10
       minimist: 1.2.8
-      plist: 3.1.0
+      plist: 3.1.1
     transitivePeerDependencies:
       - supports-color
 
@@ -5517,7 +5517,7 @@ snapshots:
       dir-compare: 4.2.0
       fs-extra: 11.3.5
       minimatch: 9.0.9
-      plist: 3.1.0
+      plist: 3.1.1
     transitivePeerDependencies:
       - supports-color
 
@@ -6681,8 +6681,7 @@ snapshots:
 
   '@xmldom/xmldom@0.8.13': {}
 
-  '@xmldom/xmldom@0.9.10':
-    optional: true
+  '@xmldom/xmldom@0.9.10': {}
 
   abbrev@4.0.0: {}
 
@@ -8475,7 +8474,6 @@ snapshots:
       '@xmldom/xmldom': 0.9.10
       base64-js: 1.5.1
       xmlbuilder: 15.1.1
-    optional: true
 
   possible-typed-array-names@1.1.0: {}
 

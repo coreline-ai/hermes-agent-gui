@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import api.profile_archive as profile_archive
 from api.profile_archive import (
     ARCHIVE_EXCLUDE_PATTERNS,
     ArchiveError,
@@ -163,6 +164,30 @@ def test_profile_import_rejects_env_secret_file(tmp_path: Path):
         import_profile_archive(blob, state_dir=tmp_path / "state", hermes_dir=tmp_path / "hermes")
     except ArchiveError as exc:
         assert "excluded file" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected ArchiveError")
+
+
+def test_profile_import_rejects_oversized_archive_member(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(profile_archive, "MAX_ARCHIVE_MEMBER_BYTES", 10)
+    blob = _make_archive_with_file("hermes-agent-gui/too-big.txt", b"x" * 11)
+
+    try:
+        import_profile_archive(blob, state_dir=tmp_path / "state", hermes_dir=tmp_path / "hermes")
+    except ArchiveError as exc:
+        assert "archive member too large" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected ArchiveError")
+
+
+def test_profile_import_rejects_too_many_files(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(profile_archive, "MAX_ARCHIVE_FILES", 0)
+    blob = _make_archive_with_file("hermes-agent-gui/keep.txt", b"ok")
+
+    try:
+        import_profile_archive(blob, state_dir=tmp_path / "state", hermes_dir=tmp_path / "hermes")
+    except ArchiveError as exc:
+        assert "too many archive" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("expected ArchiveError")
 

@@ -117,12 +117,24 @@ def build_router(cfg: config_mod.Config) -> Router:
     return root
 
 
-def make_handler(router: Router, web_dist: Path | None = None) -> type[BaseHTTPRequestHandler]:
+SERVE_SOURCEMAPS = os.environ.get("HERMES_GUI_SERVE_SOURCEMAPS", "").lower() in {"1", "true", "yes"}
+
+
+def make_handler(
+    router: Router,
+    web_dist: Path | None = None,
+    cfg: config_mod.Config | None = None,
+    *,
+    allow_inline_assets: bool = False,
+) -> type[BaseHTTPRequestHandler]:
     resolved_web_dist = (web_dist or WEB_DIST).expanduser().resolve()
+    inline_assets_enabled = allow_inline_assets
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "hermes-agent-gui/0.1.0-phase-1"
         web_dist = resolved_web_dist
+        app_cfg = cfg
+        allow_inline_assets = inline_assets_enabled
 
         def _dispatch(self) -> None:
             req = make_request(self)
@@ -131,6 +143,10 @@ def make_handler(router: Router, web_dist: Path | None = None) -> type[BaseHTTPR
             throttled = telemetry.global_rate_limit(req)
             if throttled is not None:
                 self._write_response(throttled)
+                return
+
+            if self.app_cfg is not None and (blocked := auth.csrf_guard(req, self.app_cfg)) is not None:
+                self._write_response(blocked)
                 return
 
             resolved = router.resolve(req.method, req.path)
@@ -186,8 +202,12 @@ def make_handler(router: Router, web_dist: Path | None = None) -> type[BaseHTTPR
                     except ValueError:
                         return False
                     if not target.is_file():
+                        if Path(rel).suffix == ".map":
+                            return False
                         # SPA history fallback: /chat, /workspace, etc. serve index.html.
                         target = index
+                    elif target.suffix == ".map" and not SERVE_SOURCEMAPS:
+                        return False
 
             if not target.is_file():
                 return False
@@ -216,17 +236,22 @@ def make_handler(router: Router, web_dist: Path | None = None) -> type[BaseHTTPR
 
         def _write_security_headers(self) -> None:
             # P3#15 security headers
-            self.send_header(
-                "Content-Security-Policy",
+            script_src = "script-src 'self' 'unsafe-inline'; " if self.allow_inline_assets else "script-src 'self'; "
+            style_src = "style-src 'self' 'unsafe-inline'; "
+            csp = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline'; "
-                "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data: blob:; "
+                + script_src
+                + style_src
+                + "img-src 'self' data: blob:; "
                 "connect-src 'self'; "
                 "object-src 'none'; "
                 "base-uri 'self'; "
                 "frame-ancestors 'none'; "
-                "report-uri /api/csp-report",
+                "report-uri /api/csp-report"
+            )
+            self.send_header(
+                "Content-Security-Policy",
+                csp,
             )
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -304,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
     _enforce_fail_closed(cfg, args.host)
 
     router = build_router(cfg)
-    handler_cls = make_handler(router)
+    handler_cls = make_handler(router, cfg=cfg)
 
     server = ThreadingHTTPServer((args.host, args.port), handler_cls)
     logger.info(

@@ -23,6 +23,7 @@ from . import auth as auth_module
 from .config import Config
 from .router import Request, Response, Router
 from .sessions.lifecycle import SESSIONS_DB
+from .validation import ValidationError, parse_bounded_int, validation_response
 
 
 # C v3.3 redaction policy — extended in P3#14.
@@ -180,7 +181,16 @@ def register_routes(cfg: Config) -> Router:
     def _logs(req: Request) -> Response:
         if auth_module.authenticate(req, cfg) is None:
             return Response(HTTPStatus.UNAUTHORIZED, {"error": "not_authenticated"})
-        lines = int((req.query.get("lines") or ["100"])[0])
+        try:
+            lines = parse_bounded_int(
+                (req.query.get("lines") or ["100"])[0],
+                field="lines",
+                default=100,
+                min_value=1,
+                max_value=1000,
+            )
+        except ValidationError as exc:
+            return validation_response(exc)
         path = Path.home() / ".hermes-agent-gui" / "gui.log"
         return Response(HTTPStatus.OK, {"path": str(path), "lines": _tail_log(path, lines=lines)})
 

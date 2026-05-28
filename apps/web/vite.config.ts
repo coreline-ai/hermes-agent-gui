@@ -5,6 +5,7 @@ import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import path from 'node:path';
 
 const API_TARGET = process.env.VITE_API_BASE ?? 'http://127.0.0.1:8800';
+const PUBLISH_SOURCEMAPS = process.env.HERMES_GUI_PUBLISH_SOURCEMAPS === '1';
 
 export default defineConfig(async ({ mode }) => {
   const plugins: PluginOption[] = [
@@ -29,6 +30,7 @@ export default defineConfig(async ({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'apple-touch-icon.svg', 'offline.html', 'sw-cleanup.js'],
         workbox: {
+          sourcemap: PUBLISH_SOURCEMAPS,
           // Never cache /api responses; credentials/tokens must not persist in Cache Storage.
           importScripts: ['sw-cleanup.js'],
           cleanupOutdatedCaches: true,
@@ -72,11 +74,29 @@ export default defineConfig(async ({ mode }) => {
     },
     server: {
       port: 5173,
-      proxy: { '/api': { target: API_TARGET, changeOrigin: true } },
+      proxy: { '/api': { target: API_TARGET, changeOrigin: true, xfwd: true } },
     },
     build: {
       target: 'es2022',
-      sourcemap: true,
+      sourcemap: PUBLISH_SOURCEMAPS,
+      // The only expected large chunk is the lazy-loaded Three.js core used by
+      // the opt-in 3D office route. Keep the warning budget below 1MB so new
+      // accidental main-route bloat still surfaces.
+      chunkSizeWarningLimit: 800,
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined;
+            if (/[\\/]node_modules[\\/]three[\\/](build|src)[\\/]/.test(id)) return 'vendor-three-core';
+            if (/[\\/]node_modules[\\/]three[\\/]examples[\\/]/.test(id)) return 'vendor-three-extras';
+            if (/[\\/]node_modules[\\/](@react-three|@dimforge|ecctrl)[\\/]/.test(id)) return 'vendor-3d';
+            if (/[\\/]node_modules[\\/](recharts|d3-[^\\/]+|victory|@visx)[\\/]/.test(id)) return 'vendor-charts';
+            if (/[\\/]node_modules[\\/](@tanstack)[\\/]/.test(id)) return 'vendor-tanstack';
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler|use-sync-external-store)[\\/]/.test(id)) return 'vendor-react';
+            return undefined;
+          },
+        },
+      },
     },
   };
 });

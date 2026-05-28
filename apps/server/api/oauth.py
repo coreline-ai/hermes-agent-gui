@@ -102,6 +102,21 @@ def _redirect_uri(req: Request, provider: str) -> str:
     return f"{fwd_proto}://{host}/api/auth/oauth/{provider}/callback"
 
 
+def _safe_token_error(token_resp: object) -> dict:
+    """Return provider error details without echoing token-like fields."""
+
+    out = {"error": "token_response_invalid"}
+    if not isinstance(token_resp, dict):
+        return out
+    if isinstance(token_resp.get("error"), str):
+        out["provider_error"] = token_resp["error"][:200]
+    for key in ("error_description", "error_uri"):
+        val = token_resp.get(key)
+        if isinstance(val, str):
+            out[key] = val[:500]
+    return out
+
+
 # ── HTTP routes ─────────────────────────────────────────────────────────────
 
 
@@ -184,9 +199,11 @@ def _callback(req: Request) -> Response:
         token_resp = json.loads(raw)
     except json.JSONDecodeError:
         token_resp = dict(urllib.parse.parse_qsl(raw))
+    if not isinstance(token_resp, dict):
+        return Response(HTTPStatus.BAD_GATEWAY, _safe_token_error(token_resp))
     access = token_resp.get("access_token")
     if not access:
-        return Response(HTTPStatus.BAD_GATEWAY, {"error": "token_response_invalid", "raw": token_resp})
+        return Response(HTTPStatus.BAD_GATEWAY, _safe_token_error(token_resp))
 
     # Pull a stable identifier from the user-info endpoint
     ureq = urllib.request.Request(
@@ -207,8 +224,7 @@ def _callback(req: Request) -> Response:
     resp = Response(HTTPStatus.FOUND, {"ok": True, "user": user, "provider": name})
     resp.add_header(
         "Set-Cookie",
-        f"{auth_module.COOKIE_NAME}={cookie}; Path=/; HttpOnly; SameSite=Lax; "
-        f"Max-Age={auth_module.SESSION_TTL_SECONDS}",
+        auth_module.session_cookie_header(req, cookie),
     )
     resp.add_header("Location", "/")
     return resp
