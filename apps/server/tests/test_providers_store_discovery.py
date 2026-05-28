@@ -23,6 +23,14 @@ class FakeResponse(BytesIO):
         return False
 
 
+class FakeOpener:
+    def __init__(self, fn) -> None:
+        self.fn = fn
+
+    def open(self, req, timeout=0):
+        return self.fn(req, timeout=timeout)
+
+
 def test_provider_store_rejects_invalid_api_key(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_GUI_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
@@ -86,7 +94,7 @@ def test_model_discovery_cache_hit_under_10ms(monkeypatch):
         calls["count"] += 1
         return FakeResponse({"data": [{"id": "gpt-test", "context_length": 128000}]})
 
-    monkeypatch.setattr(discovery.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(discovery.urllib.request, "build_opener", lambda *_args, **_kwargs: FakeOpener(fake_urlopen))
     monkeypatch.setattr(discovery.socket, "getaddrinfo", lambda *args, **kwargs: [])
     discovery.clear_cache()
     models, _, hit1 = discovery.discover_models(provider, "sk-abcdefghij", now=100)
@@ -114,9 +122,52 @@ def test_provider_auth_failure_maps_error(monkeypatch):
     def fake_urlopen(req, timeout=0):
         raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", hdrs=None, fp=None)
 
-    monkeypatch.setattr(discovery.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(discovery.urllib.request, "build_opener", lambda *_args, **_kwargs: FakeOpener(fake_urlopen))
     monkeypatch.setattr(discovery.socket, "getaddrinfo", lambda *args, **kwargs: [])
     discovery.clear_cache()
     with pytest.raises(discovery.DiscoveryError) as exc:
         discovery.discover_models(provider, "sk-abcdefghij", now=200, use_cache=False)
     assert exc.value.code == "provider_auth_failed"
+
+
+def test_provider_redirect_to_private_ip_is_blocked():
+    provider = Provider(
+        id="openai-redirect",
+        kind="openai",
+        label="OpenAI",
+        base_url="https://api.openai.com/v1",
+        api_key_env="OPENAI_API_KEY",
+        auth_type="bearer",
+    )
+    handler = discovery._ProviderRedirectHandler(provider)  # noqa: SLF001
+    req = discovery.urllib.request.Request(
+        "https://api.openai.com/v1/models",
+        headers={"Authorization": "Bearer sk-abcdefghij"},
+    )
+
+    with pytest.raises(discovery.DiscoveryError) as exc:
+        handler.redirect_request(req, None, 302, "Found", {}, "http://10.0.0.1/models")
+
+    assert exc.value.code == "provider_private_ip_blocked"
+
+
+def test_provider_cross_host_redirect_is_blocked(monkeypatch):
+    provider = Provider(
+        id="openai-cross-host",
+        kind="openai",
+        label="OpenAI",
+        base_url="https://api.openai.com/v1",
+        api_key_env="OPENAI_API_KEY",
+        auth_type="bearer",
+    )
+    monkeypatch.setattr(discovery.socket, "getaddrinfo", lambda *args, **kwargs: [])
+    handler = discovery._ProviderRedirectHandler(provider)  # noqa: SLF001
+    req = discovery.urllib.request.Request(
+        "https://api.openai.com/v1/models",
+        headers={"Authorization": "Bearer sk-abcdefghij"},
+    )
+
+    with pytest.raises(discovery.DiscoveryError) as exc:
+        handler.redirect_request(req, None, 302, "Found", {}, "https://models.openai.com/v1/models")
+
+    assert exc.value.code == "provider_redirect_blocked"

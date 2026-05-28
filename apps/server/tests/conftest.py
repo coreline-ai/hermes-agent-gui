@@ -22,6 +22,8 @@ def _start_server(
     web_dist: Path | None = None,
     fake_backend: str | None = "echo",
     hermes_api_url: str | None = None,
+    bind_host: str = "127.0.0.1",
+    allow_remote_exec: bool = False,
 ):
     """Yield a running ``(host, port, base_url)`` triple."""
     monkeypatch.setenv("HERMES_GUI_PASSWORD", "test-pass")
@@ -34,13 +36,17 @@ def _start_server(
     else:
         monkeypatch.setenv("HERMES_API_URL", hermes_api_url)
     monkeypatch.setenv("HERMES_GUI_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("HERMES_GUI_HOST", bind_host)
     monkeypatch.setenv("HERMES_GUI_WORKSPACES", str(tmp_path / "ws"))
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
     if enable_exec:
         monkeypatch.setenv("HERMES_GUI_ENABLE_EXEC", "1")
     else:
         monkeypatch.delenv("HERMES_GUI_ENABLE_EXEC", raising=False)
-    monkeypatch.delenv("HERMES_GUI_ALLOW_REMOTE_EXEC", raising=False)
+    if allow_remote_exec:
+        monkeypatch.setenv("HERMES_GUI_ALLOW_REMOTE_EXEC", "1")
+    else:
+        monkeypatch.delenv("HERMES_GUI_ALLOW_REMOTE_EXEC", raising=False)
     if web_dist is not None:
         monkeypatch.setenv("HERMES_GUI_WEB_DIST", str(web_dist))
     else:
@@ -58,13 +64,14 @@ def _start_server(
 
     cfg = config_mod.load()
     router = build_router(cfg)
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(router))
+    httpd = ThreadingHTTPServer((bind_host, 0), make_handler(router))
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     time.sleep(0.1)
     try:
-        yield ("127.0.0.1", port, f"http://127.0.0.1:{port}")
+        connect_host = "127.0.0.1" if bind_host in {"0.0.0.0", "::"} else bind_host
+        yield (bind_host, port, f"http://{connect_host}:{port}")
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -78,6 +85,11 @@ def server(tmp_path, monkeypatch):
 @pytest.fixture
 def server_exec(tmp_path, monkeypatch):
     yield from _start_server(tmp_path, monkeypatch, enable_exec=True)
+
+
+@pytest.fixture
+def server_exec_remote(tmp_path, monkeypatch):
+    yield from _start_server(tmp_path, monkeypatch, enable_exec=True, bind_host="0.0.0.0")
 
 
 @pytest.fixture
@@ -131,3 +143,8 @@ def client(server):
 @pytest.fixture
 def client_exec(server_exec):
     return _client_for(server_exec)
+
+
+@pytest.fixture
+def client_exec_remote(server_exec_remote):
+    return _client_for(server_exec_remote)

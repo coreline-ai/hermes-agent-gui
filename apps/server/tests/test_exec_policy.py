@@ -1,11 +1,11 @@
 from types import SimpleNamespace
 
 from api.config import Config
-from api.exec_policy import require_exec
+from api.exec_policy import require_exec, require_exec_for_host
 from api.router import Request
 
 
-def _cfg(*, enabled: bool, allow_remote: bool = False) -> Config:
+def _cfg(*, enabled: bool, allow_remote: bool = False, bind_host: str = "127.0.0.1") -> Config:
     return Config(
         password="test-pass",
         bearer_token=None,
@@ -17,6 +17,7 @@ def _cfg(*, enabled: bool, allow_remote: bool = False) -> Config:
         fail_open=False,
         exec_enabled=enabled,
         exec_allow_remote=allow_remote,
+        bind_host=bind_host,
     )
 
 
@@ -44,3 +45,9 @@ def test_exec_policy_remote_bind_needs_second_opt_in():
     assert blocked.body["error"] == "exec_remote_bind_disabled"
 
     assert require_exec(_req("0.0.0.0"), _cfg(enabled=True, allow_remote=True)) is None
+
+
+def test_exec_policy_for_host_blocks_background_remote_bind():
+    blocked = require_exec_for_host(_cfg(enabled=True, bind_host="0.0.0.0"))
+    assert blocked is not None
+    assert blocked.body["error"] == "exec_remote_bind_disabled"

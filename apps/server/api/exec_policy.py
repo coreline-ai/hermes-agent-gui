@@ -34,27 +34,42 @@ def _is_loopback(host: str) -> bool:
         return False
 
 
-def require_exec(req: Request, cfg: Config) -> Response | None:
-    if not cfg.exec_enabled:
-        return Response(
-            HTTPStatus.FORBIDDEN,
+def _exec_block_body(cfg: Config | None, host: str) -> dict | None:
+    if cfg is None or not cfg.exec_enabled:
+        return {
+            "error": "exec_disabled",
+            "detail": "Set HERMES_GUI_ENABLE_EXEC=1 to enable terminal/PTY/cron/swarm execution.",
+        }
+
+    if not _is_loopback(host) and not cfg.exec_allow_remote:
+        return {
+            "error": "exec_remote_bind_disabled",
+            "detail": (
+                "Execution is disabled on non-loopback binds unless "
+                "HERMES_GUI_ALLOW_REMOTE_EXEC=1 is set."
+            ),
+            "bind_host": host,
+        }
+    return None
+
+
+def _block_response(body: dict | None) -> Response | None:
+    return Response(HTTPStatus.FORBIDDEN, body) if body is not None else None
+
+
+def require_exec_for_host(cfg: Config | None, host: str | None = None) -> Response | None:
+    if cfg is None:
+        return _block_response(
             {
                 "error": "exec_disabled",
-                "detail": "Set HERMES_GUI_ENABLE_EXEC=1 to enable terminal/PTY/cron/swarm execution.",
-            },
+                "detail": "Execution config is unavailable.",
+            }
         )
+    return _block_response(_exec_block_body(cfg, host or cfg.bind_host))
 
-    host = _bind_host(req)
-    if not _is_loopback(host) and not cfg.exec_allow_remote:
-        return Response(
-            HTTPStatus.FORBIDDEN,
-            {
-                "error": "exec_remote_bind_disabled",
-                "detail": (
-                    "Execution is disabled on non-loopback binds unless "
-                    "HERMES_GUI_ALLOW_REMOTE_EXEC=1 is set."
-                ),
-                "bind_host": host,
-            },
-        )
+
+def require_exec(req: Request, cfg: Config) -> Response | None:
+    blocked = require_exec_for_host(cfg, _bind_host(req))
+    if blocked is not None:
+        return blocked
     return None

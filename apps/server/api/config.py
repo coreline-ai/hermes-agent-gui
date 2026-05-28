@@ -32,6 +32,7 @@ class Config:
     fail_open: bool                       # allow remote bind without auth (NOT recommended)
     exec_enabled: bool                    # opt-in shell/PTY/cron/swarm command execution
     exec_allow_remote: bool               # allow command execution when bound off-loopback
+    bind_host: str = "127.0.0.1"          # effective server bind host for background exec gates
 
     @property
     def has_any_auth(self) -> bool:
@@ -64,4 +65,5 @@ def load() -> Config:
         fail_open=os.environ.get("HERMES_GUI_FAIL_OPEN", "").lower() in {"1", "true", "yes"},
         exec_enabled=os.environ.get("HERMES_GUI_ENABLE_EXEC", "").lower() in {"1", "true", "yes"},
         exec_allow_remote=os.environ.get("HERMES_GUI_ALLOW_REMOTE_EXEC", "").lower() in {"1", "true", "yes"},
+        bind_host=os.environ.get("HERMES_GUI_HOST") or "127.0.0.1",
     )

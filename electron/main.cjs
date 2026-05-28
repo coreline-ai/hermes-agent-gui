@@ -3,10 +3,11 @@
 // Spawns the Python backend as a child process, then opens a BrowserWindow
 // pointing at it. Mirrors A's electron/main.cjs structure but trimmed.
 
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, session } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const http = require('node:http');
+const crypto = require('node:crypto');
 let autoUpdater = null;
 try {
   ({ autoUpdater } = require('electron-updater'));
@@ -16,6 +17,8 @@ try {
 
 const PORT = Number(process.env.HERMES_GUI_PORT || 8800);
 const HOST = process.env.HERMES_GUI_HOST || '127.0.0.1';
+const ELECTRON_LOGIN_PASSWORD =
+  process.env.HERMES_GUI_PASSWORD || crypto.randomBytes(32).toString('base64url');
 
 function devPath(...segments) {
   return path.join(__dirname, '..', ...segments);
@@ -41,7 +44,7 @@ function spawnBackend() {
     stdio: ['ignore', 'inherit', 'inherit'],
     env: {
       ...process.env,
-      HERMES_GUI_PASSWORD: process.env.HERMES_GUI_PASSWORD || '',
+      HERMES_GUI_PASSWORD: ELECTRON_LOGIN_PASSWORD,
       HERMES_GUI_WEB_DIST: process.env.HERMES_GUI_WEB_DIST || WEB_DIST,
     },
   });
@@ -70,6 +73,54 @@ async function waitForHealth(timeoutMs = 15000) {
     }
   }
   return false;
+}
+
+async function autoLoginElectronSession() {
+  const body = JSON.stringify({ password: ELECTRON_LOGIN_PASSWORD });
+  const cookieHeader = await new Promise((res, rej) => {
+    const req = http.request(
+      {
+        host: HOST,
+        port: PORT,
+        path: '/api/auth/login',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      },
+      (r) => {
+        const chunks = [];
+        r.on('data', (chunk) => chunks.push(chunk));
+        r.on('end', () => {
+          if (r.statusCode !== 200) {
+            rej(new Error(`login status ${r.statusCode}: ${Buffer.concat(chunks).toString('utf8')}`));
+            return;
+          }
+          const setCookie = r.headers['set-cookie'];
+          res(Array.isArray(setCookie) ? setCookie[0] : setCookie);
+        });
+      },
+    );
+    req.on('error', rej);
+    req.setTimeout(5000, () => req.destroy(new Error('login timeout')));
+    req.write(body);
+    req.end();
+  });
+
+  if (!cookieHeader) throw new Error('login did not return Set-Cookie');
+  const [pair] = String(cookieHeader).split(';', 1);
+  const [name, ...valueParts] = pair.split('=');
+  const value = valueParts.join('=');
+  if (!name || !value) throw new Error('login returned malformed cookie');
+  await session.defaultSession.cookies.set({
+    url: `http://${HOST}:${PORT}`,
+    name: name.trim(),
+    value: value.trim(),
+    httpOnly: true,
+    sameSite: 'lax',
+    expirationDate: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+  });
 }
 
 function wireAutoUpdater() {
@@ -111,6 +162,13 @@ app.whenReady().then(async () => {
   const ok = await waitForHealth();
   if (!ok) {
     console.error('[hermes-gui] backend never became healthy — aborting');
+    app.quit();
+    return;
+  }
+  try {
+    await autoLoginElectronSession();
+  } catch (err) {
+    console.error(`[hermes-gui] local auto-login failed: ${err.message}`);
     app.quit();
     return;
   }

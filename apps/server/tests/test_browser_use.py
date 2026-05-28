@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from api.browser import actions
 from api.browser.allowlist import validate_url
-from api.browser.session import BrowserPool, IDLE_SECONDS
+from api.browser.session import BrowserPool, BrowserSession, IDLE_SECONDS
 
 
 def test_allowlist_and_private_ip(monkeypatch):
@@ -27,3 +31,30 @@ def test_browser_routes_forbidden(client):
     status, body = client("POST", "/api/browser/navigate", body={"url": "https://not-allowed.test"})
     assert status == 403
     assert body["error"] == "domain_not_allowed"
+
+
+def test_browser_redirect_revalidates_private_ip(monkeypatch):
+    class RedirectHandler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", "http://10.0.0.1/metadata")
+            self.end_headers()
+
+        def log_message(self, *_args):  # noqa: ANN002
+            return None
+
+    monkeypatch.setenv("HERMES_GUI_BROWSER_ALLOWLIST", "127.0.0.1,10.0.0.1")
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        sess = BrowserSession(id="test")
+        try:
+            actions.navigate(sess, f"http://127.0.0.1:{httpd.server_address[1]}/start")
+        except PermissionError as exc:
+            assert str(exc) == "private_ip_blocked"
+        else:  # pragma: no cover
+            raise AssertionError("expected private redirect to be blocked")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()

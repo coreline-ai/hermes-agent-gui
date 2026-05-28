@@ -16,6 +16,7 @@ import logging
 import mimetypes
 import os
 import sys
+from dataclasses import replace
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -299,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    cfg = config_mod.load()
+    cfg = replace(config_mod.load(), bind_host=args.host)
     _enforce_fail_closed(cfg, args.host)
 
     router = build_router(cfg)

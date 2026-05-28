@@ -60,13 +60,21 @@ def test_profile_export_excludes_device_specific_files(tmp_path: Path):
     hermes.mkdir()
     (state / "keep.txt").write_text("keep", encoding="utf-8")
     (hermes / "config.yaml").write_text("messaging: {}\n", encoding="utf-8")
+    (hermes / ".env").write_text("HERMES_PROVIDER_TEST_API_KEY=sk-secret\n", encoding="utf-8")
+    (hermes / "skills").mkdir()
+    (hermes / "skills" / "skill.md").write_text("safe skill", encoding="utf-8")
     for name in [
+        ".env",
+        ".env.local",
         "secret",
         "passkeys.json",
         ".login-lock.json",
+        "id_rsa.pem",
+        "provider.key",
         "app.log",
         "run.pid",
         "busy.lock",
+        "refresh-token.txt",
         "session-aliases.json",
         "memory_vss.db-shm",
         "memory_vss.db-wal",
@@ -80,11 +88,14 @@ def test_profile_export_excludes_device_specific_files(tmp_path: Path):
 
     assert "MANIFEST.json" in names
     assert "hermes-agent-gui/keep.txt" in names
+    assert "hermes/skills/skill.md" in names
+    assert "hermes/config.yaml" not in names
+    assert "hermes/.env" not in names
     assert manifest["excludes"] == ARCHIVE_EXCLUDE_PATTERNS
     for archive_name in names:
         for pattern in ARCHIVE_EXCLUDE_PATTERNS:
             assert pattern not in archive_name or archive_name == "MANIFEST.json"
-    assert not any(name.endswith(("secret", "passkeys.json", ".log", ".lock", ".pid", ".db-wal", ".db-shm")) for name in names)
+    assert not any(name.endswith(("secret", "passkeys.json", ".env", ".log", ".lock", ".pid", ".pem", ".key", ".db-wal", ".db-shm")) for name in names)
 
 
 def test_profile_import_roundtrip_sessions_db_bit_exact(tmp_path: Path):
@@ -142,6 +153,16 @@ def test_profile_import_rejects_tar_path_traversal(tmp_path: Path):
         import_profile_archive(blob, state_dir=tmp_path / "state", hermes_dir=tmp_path / "hermes")
     except ArchiveError as exc:
         assert "unsafe archive path" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected ArchiveError")
+
+
+def test_profile_import_rejects_env_secret_file(tmp_path: Path):
+    blob = _make_archive_with_file("hermes/.env", b"HERMES_PROVIDER_TEST_API_KEY=sk-secret\n")
+    try:
+        import_profile_archive(blob, state_dir=tmp_path / "state", hermes_dir=tmp_path / "hermes")
+    except ArchiveError as exc:
+        assert "excluded file" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("expected ArchiveError")
 

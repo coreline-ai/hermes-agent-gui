@@ -26,6 +26,14 @@ class _FakeResponse(BytesIO):
         return False
 
 
+class _FakeOpener:
+    def __init__(self, fn) -> None:
+        self.fn = fn
+
+    def open(self, req, timeout=0):
+        return self.fn(req, timeout=timeout)
+
+
 def _login_cookie(base: str) -> str:
     req = urllib.request.Request(
         base + "/api/auth/login",
@@ -204,7 +212,7 @@ def test_internal_phase16_openai_mock_discovery_and_model_slash(monkeypatch):
         calls["count"] += 1
         return _FakeResponse({"data": [{"id": "gpt-mock", "context_length": 128000, "supports_tools": True}]})
 
-    monkeypatch.setattr(discovery.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(discovery.urllib.request, "build_opener", lambda *_args, **_kwargs: _FakeOpener(fake_urlopen))
     monkeypatch.setattr(discovery.socket, "getaddrinfo", lambda *args, **kwargs: [])
     discovery.clear_cache()
 

@@ -14,13 +14,15 @@
 - `/api/pty*`
 - `/api/cron*`의 create/run-now
 - `/api/swarm/workers`, conductor dispatch
+- `/api/cli-bridges/{name}/run`
 
 보호 정책:
 
 1. 기본값은 비활성화다.
 2. 로컬에서 사용하려면 `HERMES_GUI_ENABLE_EXEC=1`을 설정한다.
 3. 서버가 non-loopback에 bind된 상태에서 실행까지 허용하려면 `HERMES_GUI_ALLOW_REMOTE_EXEC=1`을 추가로 설정해야 한다.
-4. PTY cwd는 workspace `_safe_path()`를 통과해야 하며, terminal one-shot exec는 allowlist를 유지한다.
+4. CLI bridge, cron background runner까지 동일한 exec gate를 통과한다.
+5. PTY cwd는 workspace `_safe_path()`를 통과해야 하며, terminal one-shot exec는 allowlist를 유지한다.
 
 ## Passkey / WebAuthn
 
@@ -47,7 +49,8 @@
 
 - Profile archive export/import은 `MANIFEST.json`의 SHA-256 checksum을 모든 regular file에 대해 검증한다.
 - Import는 absolute path, `..` path traversal, symlink/hardlink/device member를 거부한다.
-- Archive에는 `secret`, `passkeys.json`, `.login-lock.json`, `*.pid`, `*.lock`, `*.log`, `session-aliases.json`, `sessions.db-{wal,shm}`, `memory_vss.db-{wal,shm}`를 포함하지 않는다.
+- Archive에는 `.env*`, `secret`, `passkeys.json`, `.login-lock.json`, `*.key`, `*.pem`, `*.pid`, `*.lock`, `*.log`, `*token*`, `session-aliases.json`, `sessions.db-{wal,shm}`, `memory_vss.db-{wal,shm}`를 포함하지 않는다.
+- Hermes home export는 `skills`, `memory`, `profiles` 하위 디렉터리만 allowlist 방식으로 포함한다.
 - Import 후 device secret은 새로 생성되며 UI는 재로그인 안내 후 자동 logout을 수행한다.
 
 ## Provider / Model Discovery
@@ -56,6 +59,7 @@
 - New provider records store keys in provider-specific env names (`HERMES_PROVIDER_<ID>_API_KEY`) to avoid same-kind providers overwriting each other.
 - Provider labels are unique case-insensitively to avoid accidental secret overwrite/confusion.
 - Remote provider discovery accepts only HTTP(S) base URLs and blocks private/loopback/link-local/reserved IP resolution for non-local provider kinds.
+- Provider and browser fetch redirect targets are re-validated before following redirects; provider model discovery also blocks cross-host redirects to avoid leaking Authorization headers.
 - Local runtimes (`ollama`, `lm_studio`, `vllm`, `llama_cpp`) are the only provider kinds allowed to target loopback URLs.
 - OAuth provider setup uses PKCE S256, one-time state, and a 10-minute state TTL.
 

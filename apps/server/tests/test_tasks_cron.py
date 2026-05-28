@@ -62,3 +62,34 @@ def test_cron_disabled_by_default(client):
     })
     assert status == 403
     assert body["error"] == "exec_disabled"
+
+
+def test_cron_background_runner_blocks_remote_bind(tmp_path, monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("HERMES_GUI_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("HERMES_GUI_ENABLE_EXEC", "1")
+    monkeypatch.setenv("HERMES_GUI_HOST", "0.0.0.0")
+    monkeypatch.delenv("HERMES_GUI_ALLOW_REMOTE_EXEC", raising=False)
+
+    import api.config as config_mod
+    import api.sessions.lifecycle as lifecycle_mod
+    import api.cron as cron_mod
+
+    importlib.reload(config_mod)
+    importlib.reload(lifecycle_mod)
+    cron_mod = importlib.reload(cron_mod)
+    cfg = config_mod.load()
+    cron_mod._ensure_schema()  # noqa: SLF001
+    jid = "remote-block"
+    with cron_mod._conn() as conn:  # noqa: SLF001
+        conn.execute(
+            "INSERT INTO cron_jobs(id,name,schedule,command,enabled) VALUES (?,?,?,?,1)",
+            (jid, "remote", "* * * * *", "echo should-not-run"),
+        )
+
+    cron_mod._run_job(jid, "echo should-not-run", cfg)  # noqa: SLF001
+
+    with cron_mod._conn() as conn:  # noqa: SLF001
+        row = conn.execute("SELECT last_exit_code,last_output FROM cron_jobs WHERE id=?", (jid,)).fetchone()
+    assert row == (-1, "exec_remote_bind_disabled")

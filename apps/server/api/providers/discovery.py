@@ -6,6 +6,7 @@ import ipaddress
 import json
 import socket
 import time
+import urllib.parse
 import urllib.error
 import urllib.request
 from dataclasses import replace
@@ -48,8 +49,8 @@ def _static_models(provider: Provider) -> list[ModelInfo]:
     return [_model(provider, mid, context=200000 if provider.kind == "anthropic" else 128000) for mid in ids]
 
 
-def _validate_base_url(provider: Provider) -> None:
-    parsed = urlsplit(provider.base_url)
+def _validate_fetch_url(provider: Provider, url: str) -> None:
+    parsed = urlsplit(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise DiscoveryError("invalid_provider_url", "base_url must be http(s)")
     if provider.kind in _LOCAL_KINDS:
@@ -67,6 +68,28 @@ def _validate_base_url(provider: Provider) -> None:
             continue
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
             raise DiscoveryError("provider_private_ip_blocked", "provider base_url resolves to a private address")
+
+
+def _validate_base_url(provider: Provider) -> None:
+    _validate_fetch_url(provider, provider.base_url)
+
+
+class _ProviderRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def __init__(self, provider: Provider) -> None:
+        super().__init__()
+        self.provider = provider
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        target = urllib.parse.urljoin(req.full_url, newurl.replace(" ", "%20"))
+        _validate_fetch_url(self.provider, target)
+        old_host = (urlsplit(req.full_url).hostname or "").lower()
+        new_host = (urlsplit(target).hostname or "").lower()
+        if old_host != new_host:
+            raise DiscoveryError(
+                "provider_redirect_blocked",
+                "provider model discovery redirects must stay on the configured host",
+            )
+        return super().redirect_request(req, fp, code, msg, headers, target)
 
 
 def discover_models(provider: Provider, api_key: str = "", *, now: float | None = None, use_cache: bool = True) -> tuple[list[ModelInfo], float, bool]:
@@ -109,15 +132,17 @@ def _headers(api_key: str) -> dict[str, str]:
     return h
 
 
-def _fetch_json(url: str, api_key: str = "") -> dict:
+def _fetch_json(provider: Provider, url: str, api_key: str = "") -> dict:
+    _validate_fetch_url(provider, url)
     req = urllib.request.Request(url, method="GET", headers=_headers(api_key))
-    with urllib.request.urlopen(req, timeout=4.5) as resp:
+    opener = urllib.request.build_opener(_ProviderRedirectHandler(provider))
+    with opener.open(req, timeout=4.5) as resp:
         raw = resp.read().decode("utf-8", errors="replace")
         return json.loads(raw) if raw else {}
 
 
 def _fetch_openai_compat(provider: Provider, api_key: str) -> list[ModelInfo]:
-    data = _fetch_json(f"{provider.base_url.rstrip('/')}/models", api_key)
+    data = _fetch_json(provider, f"{provider.base_url.rstrip('/')}/models", api_key)
     items = data.get("data") if isinstance(data, dict) else []
     out: list[ModelInfo] = []
     for m in items if isinstance(items, list) else []:
@@ -139,7 +164,7 @@ def _fetch_google_models(provider: Provider, api_key: str) -> list[ModelInfo]:
     url = f"{provider.base_url.rstrip('/')}/models"
     if api_key:
         url = f"{url}{sep}key={api_key}"
-    data = _fetch_json(url)
+    data = _fetch_json(provider, url)
     models = data.get("models", []) if isinstance(data, dict) else []
     out = []
     for item in models if isinstance(models, list) else []:
@@ -152,7 +177,7 @@ def _fetch_google_models(provider: Provider, api_key: str) -> list[ModelInfo]:
 
 
 def _fetch_ollama_tags(provider: Provider) -> list[ModelInfo]:
-    data = _fetch_json(f"{provider.base_url.rstrip('/')}/api/tags")
+    data = _fetch_json(provider, f"{provider.base_url.rstrip('/')}/api/tags")
     items = data.get("models", []) if isinstance(data, dict) else []
     out = []
     for item in items if isinstance(items, list) else []:

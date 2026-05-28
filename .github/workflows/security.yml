@@ -23,5 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: corepack enable && pnpm install --frozen-lockfile || pnpm install
-      - run: pnpm audit --prod || true
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod --json > pnpm-audit.json || true
+      - run: node scripts/pnpm-audit-gate.cjs pnpm-audit.json

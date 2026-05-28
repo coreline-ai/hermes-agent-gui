@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Status](https://img.shields.io/badge/status-Phase_25_complete-2EA043.svg)](#%EF%B8%8F-roadmap)
-[![Pytest](https://img.shields.io/badge/pytest-143_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
+[![Pytest](https://img.shields.io/badge/pytest-150_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
 [![Vitest](https://img.shields.io/badge/vitest-20_passed-2EA043.svg?logo=vitest&logoColor=white)](#-testing)
 [![Endpoints](https://img.shields.io/badge/endpoints-118-2EA043.svg)](#%EF%B8%8F-architecture)
 [![Routes](https://img.shields.io/badge/routes-28-2EA043.svg)](#-project-structure)
@@ -440,7 +440,7 @@ hermes-agent-gui/
 
 | 영역 | 도구 | 상태 |
 | --- | --- | --- |
-| Backend unit + integration | pytest | **143 passed** (Phase 25 + terminal/session gate 보강 포함) |
+| Backend unit + integration | pytest | **150 passed** (Phase 25 + terminal/session gate 보강 포함) |
 | Frontend unit | vitest | **20 passed** |
 | Frontend e2e | playwright | 회귀용 (선택) |
 | Type check | `tsc --noEmit` | 0 errors |

@@ -3,6 +3,7 @@ from __future__ import annotations
 from http import HTTPStatus
 
 from .. import auth as auth_module
+from .. import exec_policy
 from ..config import Config
 from ..router import Request, Response, Router
 from .registry import BRIDGES
@@ -21,8 +22,8 @@ def register_routes(cfg: Config) -> Router:
     def _run(req: Request) -> Response:
         if auth_module.authenticate(req, cfg) is None:
             return Response(HTTPStatus.UNAUTHORIZED, {"error": "not_authenticated"})
-        if not cfg.exec_enabled:
-            return Response(HTTPStatus.FORBIDDEN, {"error": "exec_disabled"})
+        if (blocked := exec_policy.require_exec(req, cfg)) is not None:
+            return blocked
         bridge = BRIDGES.get(req.params["name"])
         if bridge is None:
             return Response(HTTPStatus.NOT_FOUND, {"error": "bridge_not_found"})

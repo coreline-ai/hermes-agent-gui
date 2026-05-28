@@ -24,9 +24,10 @@ jobs:
         with:
           node-version: 22
       - run: corepack enable
-      - run: pnpm install --frozen-lockfile || pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm --filter @hermes-agent-gui/web typecheck
+      - run: pnpm --filter @hermes-agent-gui/web test
       - run: pnpm --filter @hermes-agent-gui/web build
 
   docker-build:

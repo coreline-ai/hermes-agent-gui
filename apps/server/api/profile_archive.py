@@ -40,18 +40,25 @@ MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
 
 # Keep in sync with docs/review/11-implementation-plan-full.md and Phase 20 backup.
 ARCHIVE_EXCLUDE_PATTERNS = [
+    ".env",
+    ".env.*",
     "secret",
     "passkeys.json",
     ".login-lock.json",
+    "*.key",
+    "*.pem",
     "*.pid",
     "*.lock",
     "*.log",
+    "*token*",
     "session-aliases.json",
     "memory_vss.db-shm",
     "memory_vss.db-wal",
     "sessions.db-shm",
     "sessions.db-wal",
 ]
+
+HERMES_ARCHIVE_SUBDIRS = ("skills", "memory", "profiles")
 
 
 @dataclass(frozen=True)
@@ -272,7 +279,8 @@ def clone_profile(source: str, new_name: str, *, state_dir: Path = STATE_DIR, he
 
 
 def _iter_archive_files(state_dir: Path, hermes_dir: Path) -> Iterable[tuple[Path, str]]:
-    roots = [(state_dir, "hermes-agent-gui"), (hermes_dir, "hermes")]
+    roots = [(state_dir, "hermes-agent-gui")]
+    roots.extend((hermes_dir / name, f"hermes/{name}") for name in HERMES_ARCHIVE_SUBDIRS)
     for root, prefix in roots:
         if not root.exists():
             continue

@@ -112,11 +112,13 @@ def _should_fire(cron: CronFields, dt: datetime) -> bool:
 
 
 def _run_job(job_id: str, command: str, cfg: Config | None = None) -> None:
-    if not exec_policy.is_exec_enabled(cfg or _CFG):
+    blocked = exec_policy.require_exec_for_host(cfg or _CFG)
+    if blocked is not None:
+        body = blocked.body if isinstance(blocked.body, dict) else {"error": "exec_disabled"}
         with _lock, _conn() as c:
             c.execute(
                 "UPDATE cron_jobs SET last_run_at=?, last_exit_code=?, last_output=? WHERE id=?",
-                (int(time.time()), -1, "exec_disabled", job_id),
+                (int(time.time()), -1, str(body.get("error") or "exec_disabled"), job_id),
             )
         return
 

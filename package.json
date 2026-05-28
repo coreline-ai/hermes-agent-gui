@@ -19,6 +19,7 @@
     "typecheck": "pnpm --filter @hermes-agent-gui/web typecheck"
   },
   "devDependencies": {
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "semver": "^7.8.1"
   }
 }
