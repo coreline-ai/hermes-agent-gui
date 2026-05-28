@@ -32,9 +32,27 @@ describe('streamChat', () => {
 
   it('parses token + done frames', async () => {
     const events: ChatEvent[] = [];
-    for await (const e of streamChat({ messages: [{ role: 'user', content: 'hi' }] })) {
+    for await (const e of streamChat({
+      messages: [{ role: 'user', content: 'hi' }],
+      sessionId: 's0',
+      providerId: 'p1',
+      model: 'm1',
+      autoCreateSession: true,
+      title: 'Hello',
+    })) {
       events.push(e);
     }
+    expect(fetch).toHaveBeenCalledWith('/api/chat/stream', expect.objectContaining({
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'hi' }],
+        session_id: 's0',
+        model: 'm1',
+        provider_id: 'p1',
+        profile: undefined,
+        title: 'Hello',
+        auto_create_session: true,
+      }),
+    }));
     expect(events).toEqual([
       { type: 'token', text: 'hello ' },
       { type: 'token', text: 'world' },

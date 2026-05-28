@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 -m pip install -r apps/server/requirements.txt pytest
-      - run: cd apps/server && python3 -m pytest -v
+      - run: python3 -m pytest -v apps/server
 
   web-build:
     runs-on: ubuntu-latest

@@ -128,6 +128,8 @@ def clear_login_locks(ip: str | None = None) -> int:
 
 
 def register_routes(cfg: Config) -> Router:
+    router = Router()
+
     @router.route("POST", "/api/auth/login")
     def _login(req: Request) -> Response:
         if not _login_rate_ok(req.client_ip()):

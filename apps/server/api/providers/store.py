@@ -118,6 +118,17 @@ def _write_api_key(env_key: str, api_key: str) -> None:
     _write_env(data)
 
 
+def _delete_api_key(env_key: str) -> None:
+    data = _read_env()
+    if env_key in data:
+        data.pop(env_key, None)
+        _write_env(data)
+
+
+def _provider_api_key_env(provider_id: str) -> str:
+    return f"HERMES_PROVIDER_{provider_id.upper()}_API_KEY"
+
+
 def read_api_key(provider: Provider) -> str:
     return _read_env().get(provider.api_key_env, "")
 
@@ -139,19 +150,20 @@ def create_provider(
     clean_base_url = (base_url or preset.base_url).strip().rstrip("/")
     _validate_api_key(kind, preset.auth_type, api_key)
     provider_id = uuid.uuid4().hex[:12]
+    api_key_env = _provider_api_key_env(provider_id) if preset.auth_type != "none" else preset.api_key_env
     now = int(time.time())
     try:
         with _lock, _conn() as c:
             c.execute(
                 "INSERT INTO providers(id,kind,label,base_url,api_key_env,auth_type,enabled,extra_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
-                    provider_id, kind, clean_label, clean_base_url, preset.api_key_env,
+                    provider_id, kind, clean_label, clean_base_url, api_key_env,
                     preset.auth_type, 1 if enabled else 0, json.dumps(extra or preset.extra), now, now,
                 ),
             )
     except sqlite3.IntegrityError as exc:
         raise ProviderStoreError("provider_label_taken", "provider label already exists") from exc
-    _write_api_key(preset.api_key_env, api_key.strip())
+    _write_api_key(api_key_env, api_key.strip())
     provider = get_provider(provider_id)
     if provider is None:  # pragma: no cover
         raise ProviderStoreError("provider_create_failed")
@@ -169,6 +181,10 @@ def update_test_status(provider_id: str, status: str) -> None:
 
 def delete_provider(provider_id: str) -> bool:
     ensure_schema()
+    provider = get_provider(provider_id)
     with _lock, _conn() as c:
         cur = c.execute("DELETE FROM providers WHERE id=?", (provider_id,))
-    return cur.rowcount > 0
+    deleted = cur.rowcount > 0
+    if deleted and provider is not None and provider.api_key_env.startswith("HERMES_PROVIDER_"):
+        _delete_api_key(provider.api_key_env)
+    return deleted

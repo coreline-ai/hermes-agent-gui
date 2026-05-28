@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Status](https://img.shields.io/badge/status-Phase_25_complete-2EA043.svg)](#%EF%B8%8F-roadmap)
-[![Pytest](https://img.shields.io/badge/pytest-135_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
+[![Pytest](https://img.shields.io/badge/pytest-143_passed-2EA043.svg?logo=pytest&logoColor=white)](#-testing)
 [![Vitest](https://img.shields.io/badge/vitest-20_passed-2EA043.svg?logo=vitest&logoColor=white)](#-testing)
 [![Endpoints](https://img.shields.io/badge/endpoints-118-2EA043.svg)](#%EF%B8%8F-architecture)
 [![Routes](https://img.shields.io/badge/routes-28-2EA043.svg)](#-project-structure)
@@ -99,10 +99,10 @@
 
 | 기능 | 내용 |
 | --- | --- |
-| **6 Memory plugins** | Honcho · Hindsight · Mem0 · RetainDB · Supermemory · ByteRover + local SQLite-VSS fallback |
+| **6 Memory plugins** | Honcho · Hindsight · Mem0 · RetainDB · Supermemory · ByteRover adapter interface + local lexical/SQLite fallback |
 | **PII redaction (8 패턴)** | SSN · 신용카드 · 이메일 · 한국 RRN · 전화번호 · IBAN · IP · custom regex · chat ingress hook + `pii_redacted` SSE 이벤트 + 인라인 badge |
 | **GBrain (Knowledge Graph)** | LLM-less entity 추출 (정규식 11종) · typed edges (works_at/founded/attended/invested_in/...) · depth-bounded traversal · 합성 답변 + citations + gap analysis |
-| **Code Knowledge Graph** | tree-sitter × 5 언어 (Python · TypeScript · JavaScript · Go · Rust) · `find_definition/find_references` tool · watchdog incremental re-index |
+| **Code Knowledge Graph** | Python AST + TS/JS/Go/Rust regex parser fallback · `find_definition` tool · tree-sitter/watchdog 는 옵션 후속 backend |
 
 ### 🗂️ Workspace · Terminal · Office
 
@@ -110,7 +110,7 @@
 | --- | --- |
 | **Workspace** | 파일 트리 · 인라인 에디터 (dirty state) · path traversal 가드 (`_safe_path()`) · 2MB inline read |
 | **Terminal · Real PTY** | stdlib `pty` 기반 · SSE 양방향 · idle 30분 자동 종료 · `/api/terminal/status` 실제 gate 표시 · 명령 allowlist + `allow_unsafe` 우회 옵션 |
-| **Browser-use** | Playwright 기반 · 도메인 화이트리스트 + private IP 차단 · 6 actions (navigate/click/type/screenshot/extract/eval) |
+| **Browser-use** | dependency-free HTTP fallback 우선 · 도메인 화이트리스트 + private IP 차단 · Playwright/Chromium backend 는 옵션 후속 |
 | **Office 3D (Claw3d)** | three.js + react-three-fiber + rapier · `VITE_FEATURE_3D=true` opt-in · lazy chunk · 모바일 자동 2D fallback |
 
 ### 📋 Tasks · Workflows · Multi-Agent
@@ -131,7 +131,7 @@
 | **Dashboard** | sessions/tasks/cron 합계 · agent/system probe · Recharts (30-day token usage + 모델 분포) · 30s 자동 refresh |
 | **Usage Analytics** | turn별 token I/O rollup · provider별 unit price · cache hit rate · KPI 4종 카드 · 일별 추세 차트 |
 | **Inspector logs** | 11 패턴 redaction (OpenAI sk-* · Anthropic · AWS · JWT · GitHub PAT · Slack · Google · PEM · DB URL · Bearer · API key) · `/api/inspector/logs?lines=N` |
-| **CLI maintenance** | `hermes-agent-gui clear-login-locks` · `reset-default-login` · `purge-old-sessions` · `doctor` (capabilities + health 진단) |
+| **CLI maintenance** | `hermes-agent-gui clear-login-locks` · `reset-login` · `purge-sessions` · `doctor` (capabilities + health 진단) |
 
 ### 🎨 UX · Platform · Deploy
 
@@ -440,7 +440,7 @@ hermes-agent-gui/
 
 | 영역 | 도구 | 상태 |
 | --- | --- | --- |
-| Backend unit + integration | pytest | **135 passed** (Phase 25 + terminal/session gate 보강 포함) |
+| Backend unit + integration | pytest | **143 passed** (Phase 25 + terminal/session gate 보강 포함) |
 | Frontend unit | vitest | **20 passed** |
 | Frontend e2e | playwright | 회귀용 (선택) |
 | Type check | `tsc --noEmit` | 0 errors |
@@ -450,7 +450,7 @@ hermes-agent-gui/
 
 ```bash
 # Backend
-cd apps/server && python3 -m pytest -v
+python3 -m pytest -v apps/server
 
 # Frontend
 cd apps/web && pnpm vitest run && pnpm typecheck && pnpm lint
@@ -544,7 +544,7 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
 | **20** | Group chat · Auto-updater · Backup/debug dump | ✅ |
 | **21** | Knowledge graph (GBrain — entity + typed edges + synthesis + citations) | ✅ |
 | **22** | Code knowledge graph (5 languages, tree-sitter optional) | ✅ |
-| **23** | Computer/Browser-use (allowlist + private IP guard, Playwright optional) | ✅ |
+| **23** | Computer/Browser-use fallback (allowlist + private IP guard, Playwright optional) | ✅ |
 | **24** | UX quick wins (sidebar groups · virtualized scroll · CLI maint · login lock UI) | ✅ |
 | **25** | Office 3D (Claw3d) · Multi-CLI bridge · Agent marketplace | ✅ |
 
@@ -558,9 +558,9 @@ docker build -f docker/Dockerfile -t hagi:ci . && \
 | --- | --- | --- |
 | Hermes Agent 실 환경 검증 | 미수행 | 적용 환경에서 EmbeddedAdapter/GatewayAdapter 시그니처 확인 필요 |
 | Electron 코드사이닝 | unsigned only | macOS notarization · Windows EV cert (사용자 컨펌 필요) |
-| Browser-use Playwright Chromium | 별도 설치 | `playwright install chromium` |
+| Browser-use Playwright Chromium | fallback 모드 기본 | 현재 내장 backend는 HTTP fetch/extract 중심, 실 Playwright는 옵션 후속 |
 | LLM 비용 폭주 차단 | 사용자 경고만 | daily budget env 추가 예정 |
-| Memory provider 6종 실 연동 | base interface | 각 외부 서비스 가입 시 검증 |
+| Memory provider 6종 실 연동 | adapter interface/fallback | 외부 서비스별 실 API 검증 필요 |
 | Hermes 본체의 14 위임 메시징 platform | Hermes 본체 의존 | 본체 미설치 시 `503 hermes_agent_not_running` |
 | `sqlite-vss` wheel 미지원 OS | lexical fallback | 옵션 dep — 미설치 시 자동 lexical RAG |
 | 3D Office 모바일 | 자동 2D fallback | 의도된 동작 — three.js bundle 격리 보존 |

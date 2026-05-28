@@ -53,6 +53,7 @@
 ## Provider / Model Discovery
 
 - Provider API keys are written through the same atomic `~/.hermes/.env` path used by Phase 15 credentials.
+- New provider records store keys in provider-specific env names (`HERMES_PROVIDER_<ID>_API_KEY`) to avoid same-kind providers overwriting each other.
 - Provider labels are unique case-insensitively to avoid accidental secret overwrite/confusion.
 - Remote provider discovery accepts only HTTP(S) base URLs and blocks private/loopback/link-local/reserved IP resolution for non-local provider kinds.
 - Local runtimes (`ollama`, `lm_studio`, `vllm`, `llama_cpp`) are the only provider kinds allowed to target loopback URLs.

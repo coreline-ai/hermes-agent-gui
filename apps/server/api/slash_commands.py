@@ -73,9 +73,9 @@ def parse_slash_command(text: str) -> ParsedSlashCommand:
 
 def execute_stub(parsed: ParsedSlashCommand) -> dict:
     if parsed.command in {"compact", "compress"}:
-        return {"kind": "system", "text": "Context compression is planned for Phase 18."}
+        return {"kind": "navigate", "to": "/rag", "text": "Open /rag to compact or search a saved session."}
     if parsed.command == "usage":
-        return {"kind": "system", "text": "Usage analytics arrive in Phase 17. Current usage: unavailable."}
+        return {"kind": "navigate", "to": "/usage", "text": "Open /usage for token and cost rollups."}
     if parsed.command == "version":
         return {"kind": "system", "text": __version__}
     if parsed.command == "help":
@@ -84,7 +84,7 @@ def execute_stub(parsed: ParsedSlashCommand) -> dict:
         if not parsed.args:
             return {"kind": "system", "text": "Usage: /model <model_id> [--temp 0.7]"}
         return {"kind": "system", "text": f"Model switched to {parsed.args[0]}", "model": parsed.args[0], "options": parsed.options}
-    return {"kind": "intercept", "text": f"/{parsed.command} handled by the UI when available."}
+    return {"kind": "intercept", "text": f"/{parsed.command} is registered; use the matching UI page or integration to execute it."}
 
 
 def register_routes(cfg: Config) -> Router:

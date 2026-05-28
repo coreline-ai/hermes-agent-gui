@@ -25,7 +25,7 @@ function CodeGraphPage() {
   });
 
   return (
-    <Page title="Code Graph" action={<span className="text-xs text-black/55 dark:text-white/55">Python · TS · JS · Go · Rust symbols</span>}>
+    <Page title="Code Graph" action={<span className="text-xs text-black/55 dark:text-white/55">Python AST · regex fallback for TS/JS/Go/Rust</span>}>
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card className="space-y-3">
           <label className="block text-xs font-medium text-black/60 dark:text-white/60">Workspace root</label>

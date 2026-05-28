@@ -83,7 +83,9 @@ class GatewayAdapter(Adapter):
 
     Tries the OpenAI-compatible endpoint first, then Hermes' richer
     streaming surfaces if the first returns 404. The chosen endpoint is
-    cached on the instance so subsequent turns skip the probe.
+    cached per routing mode on the instance so subsequent turns skip the probe
+    without letting an auto-routed OpenAI-compatible cache mask an explicitly
+    selected provider's native agent endpoint.
     """
 
     name = "gateway"
@@ -98,6 +100,7 @@ class GatewayAdapter(Adapter):
         self.base_url = base_url.rstrip("/")
         self.token = token
         self._endpoint: tuple[str, str] | None = None  # (path, flavor)
+        self._endpoint_by_mode: dict[str, tuple[str, str]] = {}
 
     # ── request helpers ────────────────────────────────────────────────────
 
@@ -108,10 +111,14 @@ class GatewayAdapter(Adapter):
         return h
 
     def _payload(self, turn: ChatTurn, flavor: str) -> dict:
+        explicit_provider = bool(turn.provider_id and turn.provider_id != "auto")
         if flavor == "openai":
-            return {"model": turn.model or "auto", "messages": turn.messages, "stream": True}
+            payload = {"model": turn.model or "auto", "messages": turn.messages, "stream": True}
+            if explicit_provider:
+                payload["provider_id"] = turn.provider_id
+            return payload
         if flavor == "responses":
-            return {
+            payload = {
                 "model": turn.model or "auto",
                 "input": [
                     {"role": m.get("role", "user"), "content": m.get("content", "")}
@@ -119,6 +126,9 @@ class GatewayAdapter(Adapter):
                 ],
                 "stream": True,
             }
+            if explicit_provider:
+                payload["provider_id"] = turn.provider_id
+            return payload
         # agent flavor — pass-through with session id
         return {
             "session_id": turn.session_id,
@@ -137,18 +147,42 @@ class GatewayAdapter(Adapter):
 
     # ── streaming ──────────────────────────────────────────────────────────
 
+    def _probe_endpoints(self, turn: ChatTurn) -> tuple[tuple[str, str], ...]:
+        """Prefer Hermes' native agent stream when a concrete provider is selected.
+
+        OpenAI-compatible gateways may ignore non-standard routing fields. Trying
+        the native endpoint first makes provider selection observable instead of
+        silently falling back to a provider-agnostic chat/completions call.
+        """
+        if turn.provider_id and turn.provider_id != "auto":
+            return (
+                ("/v1/agent/stream", "agent"),
+                ("/v1/chat/completions", "openai"),
+                ("/v1/responses", "responses"),
+            )
+        return self.PROBE_ENDPOINTS
+
+    @staticmethod
+    def _routing_mode(turn: ChatTurn) -> str:
+        return "provider" if turn.provider_id and turn.provider_id != "auto" else "default"
+
     def _try_endpoint(self, turn: ChatTurn) -> tuple[Any, tuple[str, str]] | None:
-        if self._endpoint is not None:
+        mode = self._routing_mode(turn)
+        cached = self._endpoint_by_mode.get(mode)
+        if cached is not None:
             try:
-                return self._open(self._endpoint[0], self._endpoint[1], turn), self._endpoint
+                self._endpoint = cached
+                return self._open(cached[0], cached[1], turn), cached
             except urllib.error.HTTPError as exc:
                 if exc.code != 404:
                     raise
+                self._endpoint_by_mode.pop(mode, None)
                 self._endpoint = None  # fall through to re-probe
-        for path, flavor in self.PROBE_ENDPOINTS:
+        for path, flavor in self._probe_endpoints(turn):
             try:
                 resp = self._open(path, flavor, turn)
                 self._endpoint = (path, flavor)
+                self._endpoint_by_mode[mode] = self._endpoint
                 logger.info("gateway endpoint selected: %s (%s)", path, flavor)
                 return resp, self._endpoint
             except urllib.error.HTTPError as exc:
@@ -169,7 +203,7 @@ class GatewayAdapter(Adapter):
         if picked is None:
             yield "error", {"error": "gateway_no_streaming_endpoint"}
             return
-        resp, (_, flavor) = picked
+        resp, (path, flavor) = picked
         buf = b""
         try:
             for chunk in resp:
@@ -184,7 +218,7 @@ class GatewayAdapter(Adapter):
         yield "done", {
             "session_id": turn.session_id or "gateway",
             "adapter": self.name,
-            "endpoint": self._endpoint[0] if self._endpoint else "?",
+            "endpoint": path,
         }
 
     @staticmethod

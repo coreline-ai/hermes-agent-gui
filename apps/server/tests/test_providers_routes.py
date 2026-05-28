@@ -20,9 +20,13 @@ def test_provider_routes_create_list_models_and_errors(client):
     assert sc == 409
     assert dup['error'] == 'provider_label_taken'
 
+    sc, provider_2 = client('POST', '/api/providers', body={'kind': 'anthropic', 'label': 'Anthropic Backup', 'api_key': 'sk-ant-klmnopqrst'})
+    assert sc == 201
+    assert provider_2['api_key_env'] != provider['api_key_env']
+
     sc, listed = client('GET', '/api/providers')
     assert sc == 200
-    assert listed['providers'][0]['label'] == 'Anthropic Main'
+    assert any(item['label'] == 'Anthropic Main' for item in listed['providers'])
 
     sc, models = client('GET', f'/api/providers/{pid}/models')
     assert sc == 200

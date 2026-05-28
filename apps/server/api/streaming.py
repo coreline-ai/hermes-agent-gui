@@ -31,6 +31,9 @@ def begin_sse(raw: BaseHTTPRequestHandler, *, status: HTTPStatus = HTTPStatus.OK
     raw.send_header("Cache-Control", "no-store")
     raw.send_header("X-Accel-Buffering", "no")
     raw.send_header("Connection", "keep-alive")
+    raw.send_header("X-Content-Type-Options", "nosniff")
+    raw.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+    raw.send_header("X-Frame-Options", "DENY")
     raw.end_headers()
 
 

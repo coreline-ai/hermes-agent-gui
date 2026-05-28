@@ -91,7 +91,10 @@ function SessionsPage() {
                         {s.message_count} msgs · updated {new Date(s.updated_at * 1000).toLocaleString()}
                       </p>
                     </div>
-                    <button onClick={() => removeMut.mutate(s.id)} className="text-xs text-rose-600 hover:underline dark:text-rose-400">delete</button>
+                    <div className="flex items-center gap-2 text-xs">
+                      <a href={`/chat?session=${encodeURIComponent(s.id)}`} className="text-sky-600 hover:underline dark:text-sky-400">open</a>
+                      <button onClick={() => removeMut.mutate(s.id)} className="text-rose-600 hover:underline dark:text-rose-400">delete</button>
+                    </div>
                   </li>
                 ))}
               </ul>

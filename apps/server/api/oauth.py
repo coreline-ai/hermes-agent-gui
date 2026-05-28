@@ -220,4 +220,7 @@ _CFG: Config | None = None  # populated by register_routes()
 def register_routes(cfg: Config) -> Router:
     global _CFG
     _CFG = cfg
-    return router
+    fresh = Router()
+    fresh.add("GET", "/api/auth/oauth/{provider}/start", _start)
+    fresh.add("GET", "/api/auth/oauth/{provider}/callback", _callback)
+    return fresh

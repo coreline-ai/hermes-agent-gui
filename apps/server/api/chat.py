@@ -27,6 +27,14 @@ from .sessions.events import events as session_events
 logger = logging.getLogger(__name__)
 
 
+def _session_title_from_messages(messages: list[dict]) -> str:
+    last_user = next(
+        (str(m.get("content") or "").strip() for m in reversed(messages) if isinstance(m, dict) and m.get("role") == "user"),
+        "",
+    )
+    return (last_user[:60] or "New chat").replace("\n", " ")
+
+
 def register_routes(cfg: Config, adapter: Adapter, store: SessionStore) -> Router:
     router = Router()
 
@@ -45,10 +53,29 @@ def register_routes(cfg: Config, adapter: Adapter, store: SessionStore) -> Route
 
         session_id = body.get("session_id")
         save = bool(body.get("save", True))
-        resolved_sid = alias_resolve(session_id) if session_id else None
+        resolved_sid = alias_resolve(str(session_id)) if session_id else None
         sess = store.get(resolved_sid) if resolved_sid else None
         model = str(body.get("model") or "auto")
         provider_id = str(body.get("provider_id") or "auto")
+        profile = str(body.get("profile") or "default")
+        auto_created = False
+
+        if save and sess is None and bool(body.get("auto_create_session")):
+            sess = store.create(
+                title=str(body.get("title") or _session_title_from_messages(messages_raw)),
+                profile=profile,
+            )
+            resolved_sid = sess.id
+            auto_created = True
+            session_events.publish("session_list_changed", {"session_id": sess.id})
+
+        def cleanup_auto_created(reason: str) -> None:
+            if auto_created and sess is not None:
+                store.delete(sess.id)
+                session_events.publish(
+                    "session_deleted",
+                    {"session_id": sess.id, "reason": reason},
+                )
 
         # Phase 19: redact PII from the adapter payload only. Server-side visible
         # session persistence keeps the original local transcript.
@@ -72,16 +99,23 @@ def register_routes(cfg: Config, adapter: Adapter, store: SessionStore) -> Route
             streaming.write_event(req.raw, "pii_redacted", {"redactions": pii_findings})
         assistant_buf: list[str] = []
         adapter_name = adapter.name
+        stream_error = False
         for event, data in adapter.stream(turn):
             if event == "token":
                 assistant_buf.append(str(data.get("text") or ""))
+            if event == "error":
+                stream_error = True
             if not streaming.write_event(req.raw, event, data):
                 logger.debug("client gone — aborting stream")
+                cleanup_auto_created("client_disconnected")
                 return None
             if event in {"done", "error"}:
                 break
 
         # Persist new turn (user + assistant) if a session was attached.
+        if stream_error and auto_created:
+            cleanup_auto_created("stream_error")
+            return None
         if save and sess is not None:
             last_user = next(
                 (m for m in reversed(messages_raw) if (m.get("role") == "user")),
@@ -115,6 +149,8 @@ def register_routes(cfg: Config, adapter: Adapter, store: SessionStore) -> Route
                     )
                 except Exception:  # noqa: BLE001 -- usage accounting must not break chat
                     logger.exception("usage accounting failed")
+            else:
+                cleanup_auto_created("no_persisted_messages")
         return None
 
     return router

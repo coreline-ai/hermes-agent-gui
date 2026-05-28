@@ -26,6 +26,7 @@ def get_health(adapter_name: str = "unknown") -> dict:
 
 def register_routes(cfg: Config, adapter_name: str) -> Router:
     del cfg  # health is intentionally open in Phase 1
+    router = Router()
 
     @router.route("GET", "/api/health")
     def _health(_req: Request) -> Response:

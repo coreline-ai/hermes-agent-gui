@@ -426,7 +426,12 @@ def _auth_finish(req: Request) -> Response:
 def register_routes(cfg: Config) -> Router:
     global _CFG
     _CFG = cfg
-    return router
+    fresh = Router()
+    fresh.add("POST", "/api/auth/passkey/register/begin", _register_begin)
+    fresh.add("POST", "/api/auth/passkey/register/finish", _register_finish)
+    fresh.add("POST", "/api/auth/passkey/authenticate/begin", _auth_begin)
+    fresh.add("POST", "/api/auth/passkey/authenticate/finish", _auth_finish)
+    return fresh
 
 
 # ``os`` is intentionally imported for future PASSKEY_RP_ID env override.

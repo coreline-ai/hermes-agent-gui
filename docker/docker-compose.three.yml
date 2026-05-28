@@ -24,6 +24,7 @@ services:
       HERMES_GUI_PASSWORD: ${HERMES_GUI_PASSWORD:?set in .env}
       HERMES_API_URL: http://agent:8642
       HERMES_API_TOKEN: ${HERMES_API_TOKEN}
+      HERMES_GUI_WORKSPACES: /workspace
     volumes:
       - ${HOME}/workspace:/workspace
       - hermes-gui-state:/home/hermes/.hermes-agent-gui

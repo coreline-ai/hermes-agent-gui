@@ -16,7 +16,21 @@ try {
 
 const PORT = Number(process.env.HERMES_GUI_PORT || 8800);
 const HOST = process.env.HERMES_GUI_HOST || '127.0.0.1';
-const SERVER_ENTRY = path.join(__dirname, '..', 'apps', 'server', 'server.py');
+
+function devPath(...segments) {
+  return path.join(__dirname, '..', ...segments);
+}
+
+function resourcePath(...segments) {
+  return app.isPackaged ? path.join(process.resourcesPath, ...segments) : devPath(...segments);
+}
+
+const SERVER_ENTRY = app.isPackaged
+  ? resourcePath('server', 'server.py')
+  : devPath('apps', 'server', 'server.py');
+const WEB_DIST = app.isPackaged
+  ? resourcePath('web')
+  : devPath('apps', 'web', 'dist');
 
 let backendProcess = null;
 let mainWindow = null;
@@ -25,7 +39,11 @@ function spawnBackend() {
   const args = [SERVER_ENTRY, '--host', HOST, '--port', String(PORT)];
   backendProcess = spawn('python3', args, {
     stdio: ['ignore', 'inherit', 'inherit'],
-    env: { ...process.env, HERMES_GUI_PASSWORD: process.env.HERMES_GUI_PASSWORD || '' },
+    env: {
+      ...process.env,
+      HERMES_GUI_PASSWORD: process.env.HERMES_GUI_PASSWORD || '',
+      HERMES_GUI_WEB_DIST: process.env.HERMES_GUI_WEB_DIST || WEB_DIST,
+    },
   });
   backendProcess.on('exit', (code) => {
     console.log(`[hermes-gui] backend exit code=${code}`);

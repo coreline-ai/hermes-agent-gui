@@ -13,6 +13,7 @@ services:
       HERMES_GUI_HOST: 0.0.0.0
       HERMES_API_URL: ${HERMES_API_URL:-}
       HERMES_API_TOKEN: ${HERMES_API_TOKEN:-}
+      HERMES_GUI_WORKSPACES: /workspace
     volumes:
       - ${HOME}/.hermes:/home/hermes/.hermes
       - ${HOME}/workspace:/workspace

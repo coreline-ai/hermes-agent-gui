@@ -35,7 +35,7 @@ function BrowserPage() {
   });
 
   return (
-    <Page title="Browser Use" action={<span className="text-xs text-black/55 dark:text-white/55">Allowlist + private IP guard</span>}>
+    <Page title="Browser Use" action={<span className="text-xs text-black/55 dark:text-white/55">HTTP fallback · allowlist + private IP guard</span>}>
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card className="space-y-3">
           <input value={url} onChange={(e) => setUrl(e.target.value)} className="w-full rounded-md border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/15" />
@@ -47,7 +47,7 @@ function BrowserPage() {
         <Card>
           <p className="font-mono text-[11px] text-black/50 dark:text-white/50">Session {sessionId ?? '—'}</p>
           <h3 className="mt-2 text-lg font-semibold">{nav.data?.title || 'No page loaded'}</h3>
-          {nav.data?.screenshot_b64 && <div className="mt-4 rounded-lg border border-dashed border-black/10 p-8 text-center text-xs text-black/55 dark:border-white/15 dark:text-white/55">Screenshot placeholder · {nav.data.screenshot_b64.length} bytes b64</div>}
+          {nav.data?.screenshot_b64 && <div className="mt-4 rounded-lg border border-dashed border-black/10 p-8 text-center text-xs text-black/55 dark:border-white/15 dark:text-white/55">Screenshot placeholder from dependency-free fallback · {nav.data.screenshot_b64.length} bytes b64</div>}
           {extracted && <pre className="mt-4 whitespace-pre-wrap rounded bg-black/[0.03] p-3 text-xs dark:bg-white/[0.04]">{extracted}</pre>}
         </Card>
       </div>

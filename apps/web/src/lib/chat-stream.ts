@@ -32,6 +32,10 @@ interface StreamOptions {
   messages: ChatMessage[];
   sessionId?: string | undefined;
   model?: string | undefined;
+  providerId?: string | undefined;
+  profile?: string | undefined;
+  title?: string | undefined;
+  autoCreateSession?: boolean | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -41,7 +45,15 @@ export async function* streamChat(opts: StreamOptions): AsyncGenerator<ChatEvent
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: opts.messages, session_id: opts.sessionId, model: opts.model }),
+    body: JSON.stringify({
+      messages: opts.messages,
+      session_id: opts.sessionId,
+      model: opts.model,
+      provider_id: opts.providerId,
+      profile: opts.profile,
+      title: opts.title,
+      auto_create_session: opts.autoCreateSession,
+    }),
     signal: opts.signal,
   });
 

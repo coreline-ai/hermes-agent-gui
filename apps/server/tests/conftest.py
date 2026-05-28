@@ -14,10 +14,25 @@ HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
 
-def _start_server(tmp_path, monkeypatch, *, enable_exec: bool = False, web_dist: Path | None = None):
+def _start_server(
+    tmp_path,
+    monkeypatch,
+    *,
+    enable_exec: bool = False,
+    web_dist: Path | None = None,
+    fake_backend: str | None = "echo",
+    hermes_api_url: str | None = None,
+):
     """Yield a running ``(host, port, base_url)`` triple."""
     monkeypatch.setenv("HERMES_GUI_PASSWORD", "test-pass")
-    monkeypatch.setenv("HERMES_GUI_FAKE_BACKEND", "echo")
+    if fake_backend is None:
+        monkeypatch.delenv("HERMES_GUI_FAKE_BACKEND", raising=False)
+    else:
+        monkeypatch.setenv("HERMES_GUI_FAKE_BACKEND", fake_backend)
+    if hermes_api_url is None:
+        monkeypatch.delenv("HERMES_API_URL", raising=False)
+    else:
+        monkeypatch.setenv("HERMES_API_URL", hermes_api_url)
     monkeypatch.setenv("HERMES_GUI_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("HERMES_GUI_WORKSPACES", str(tmp_path / "ws"))
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
@@ -63,6 +78,16 @@ def server(tmp_path, monkeypatch):
 @pytest.fixture
 def server_exec(tmp_path, monkeypatch):
     yield from _start_server(tmp_path, monkeypatch, enable_exec=True)
+
+
+@pytest.fixture
+def server_gateway_down(tmp_path, monkeypatch):
+    yield from _start_server(
+        tmp_path,
+        monkeypatch,
+        fake_backend=None,
+        hermes_api_url="http://127.0.0.1:9",
+    )
 
 
 def _client_for(server_info):
